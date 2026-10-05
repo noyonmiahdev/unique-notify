@@ -1,0 +1,47 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Environment configuration
+.env
+.env.local
+.env.*.local
+
+# Storage, sessions, local databases & uploads
+storage/sessions/*
+!storage/sessions/.gitkeep
+storage/uploads/*
+!storage/uploads/.gitkeep
+storage/*.sqlite
+storage/*.sqlite-journal
+storage/*.db
+storage/*.log
+
+# Testing & scratch files
+tests/
+scratch/
+
+# Android mobile app & build artifacts (as requested)
+android-gateway/
+*.apk
+*.aab
+.gradle/
+build/
+
+# Logs & debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

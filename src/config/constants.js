@@ -1,0 +1,52 @@
+/**
+ * Unique-Notify System Constants
+ */
+
+module.exports = {
+  GATEWAY_TYPES: {
+    META: 'meta',
+    QR: 'qr',
+    AUTO: 'auto',
+  },
+  
+  MESSAGE_STATUS: {
+    QUEUED: 'QUEUED',
+    SENDING: 'SENDING',
+    SENT: 'SENT',
+    DELIVERED: 'DELIVERED',
+    READ: 'READ',
+    FAILED: 'FAILED',
+  },
+
+  MESSAGE_TYPES: {
+    TEXT: 'TEXT',
+    OTP: 'OTP',
+    MEDIA: 'MEDIA',
+    TEMPLATE: 'TEMPLATE',
+    BROADCAST: 'BROADCAST',
+  },
+
+  OTP_STATUS: {
+    PENDING: 'PENDING',
+    SENT: 'SENT',
+    VERIFIED: 'VERIFIED',
+    EXPIRED: 'EXPIRED',
+    FAILED: 'FAILED',
+  },
+
+  CAMPAIGN_STATUS: {
+    DRAFT: 'DRAFT',
+    RUNNING: 'RUNNING',
+    PAUSED: 'PAUSED',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED',
+  },
+
+  SESSION_STATUS: {
+    DISCONNECTED: 'DISCONNECTED',
+    CONNECTING: 'CONNECTING',
+    SCAN_QR: 'SCAN_QR',
+    CONNECTED: 'CONNECTED',
+    LOGGED_OUT: 'LOGGED_OUT',
+  }
+};
