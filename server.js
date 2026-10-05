@@ -69,11 +69,43 @@ io.on('connection', (socket) => {
 app.use(cors({ origin: '*' }));
 app.use(helmet({
   contentSecurityPolicy: false, // Allow inline scripts and assets for dashboard
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  ieNoOpen: false // Prevent browser download prompts
 }));
 app.use(morgan('short'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Helper to explicitly serve PHP file as HTML with proper Content-Type & Cache control
+const serveHtml = (res, filePath) => {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.status(200).send(content);
+  } catch (err) {
+    return res.status(500).send('Error loading page: ' + err.message);
+  }
+};
+
+// Root & Direct PHP Routes (Placed before static to guarantee HTML execution)
+app.get(['/', '/index.php'], (req, res) => {
+  const phpPath = path.join(__dirname, 'public', 'index.php');
+  serveHtml(res, phpPath);
+});
+
+app.get(['/admin', '/admin/', '/admin/index.php'], (req, res) => {
+  const phpPath = path.join(__dirname, 'public', 'admin', 'index.php');
+  serveHtml(res, phpPath);
+});
+
+app.get(['/docs', '/docs/', '/docs/index.php'], (req, res) => {
+  const phpPath = path.join(__dirname, 'public', 'docs', 'index.php');
+  serveHtml(res, phpPath);
+});
 
 // Static Assets
 app.use(express.static(path.join(__dirname, 'public')));
@@ -115,24 +147,6 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'Unique-Notify Hub'
   });
-});
-
-// Helper to explicitly serve HTML with proper Content-Type
-const serveHtml = (res, filePath) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.sendFile(filePath);
-};
-
-// Dedicated Public Documentation Portal
-app.use('/docs', (req, res) => {
-  const phpPath = path.join(__dirname, 'public', 'docs', 'index.php');
-  serveHtml(res, phpPath);
-});
-
-// Dedicated Separate Super Admin Portal
-app.use('/admin', (req, res) => {
-  const phpPath = path.join(__dirname, 'public', 'admin', 'index.php');
-  serveHtml(res, phpPath);
 });
 
 // Dedicated Client User Dashboard & Login routes
