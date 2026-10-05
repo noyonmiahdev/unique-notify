@@ -186,6 +186,9 @@ async function createTables() {
   await addColumnIfNotExists('users', 'plan_status', "VARCHAR(30) DEFAULT 'ACTIVE'");
   await addColumnIfNotExists('users', 'credits_remaining', 'INT DEFAULT 200');
   await addColumnIfNotExists('users', 'credits_used', 'INT DEFAULT 0');
+  await addColumnIfNotExists('users', 'sms_balance', 'DECIMAL(10,4) DEFAULT 0.0000');
+  await addColumnIfNotExists('users', 'sms_credits', 'INT DEFAULT 0');
+  await addColumnIfNotExists('users', 'custom_sms_rate', 'DECIMAL(10,4) DEFAULT NULL');
 
   // 3. Payment Transactions table (bKash, Nagad, Card, Manual)
   await query(`
@@ -433,7 +436,7 @@ async function createTables() {
     );
   `);
 
-  // 17. Third-Party SMS Gateways (Greenweb, BulkSMSBD, Custom HTTP)
+  // 17. Third-Party SMS Gateways (Admin-Managed: Greenweb, BulkSMSBD, Custom HTTP)
   await query(`
     CREATE TABLE IF NOT EXISTS sms_gateways (
       id ${autoInc},
@@ -442,13 +445,52 @@ async function createTables() {
       api_url VARCHAR(255) NOT NULL,
       api_key VARCHAR(255) DEFAULT NULL,
       sender_id VARCHAR(50) DEFAULT NULL,
+      is_default TINYINT(1) DEFAULT 0,
       is_active TINYINT(1) DEFAULT 1,
+      notes VARCHAR(255) DEFAULT NULL,
       created_at DATETIME DEFAULT ${timestampDefault},
       updated_at DATETIME DEFAULT ${timestampDefault}
     );
   `);
+  await addColumnIfNotExists('sms_gateways', 'is_default', 'TINYINT(1) DEFAULT 0');
+  await addColumnIfNotExists('sms_gateways', 'notes', 'VARCHAR(255) DEFAULT NULL');
 
-  // 18. SMS Queue & Logs (Android SIM + 3rd Party)
+  // 18. SMS Packages (Pay-as-you-go Bundles)
+  await query(`
+    CREATE TABLE IF NOT EXISTS sms_packages (
+      id ${autoInc},
+      name VARCHAR(100) NOT NULL,
+      sms_count INT NOT NULL,
+      price_bdt DECIMAL(10,2) NOT NULL,
+      price_per_sms DECIMAL(10,4) NOT NULL DEFAULT 0.3500,
+      validity_days INT DEFAULT 365,
+      features ${textType} DEFAULT NULL,
+      is_popular TINYINT(1) DEFAULT 0,
+      is_active TINYINT(1) DEFAULT 1,
+      created_at DATETIME DEFAULT ${timestampDefault}
+    );
+  `);
+
+  // 19. SMS Wallet Transactions (Top-ups, Package Buys, Pay-as-you-go debits)
+  await query(`
+    CREATE TABLE IF NOT EXISTS sms_transactions (
+      id ${autoInc},
+      user_id INT NOT NULL,
+      type VARCHAR(30) NOT NULL, -- 'TOPUP_RECHARGE', 'PACKAGE_PURCHASE', 'SMS_DEBIT', 'REFUND', 'ADMIN_ADJUST'
+      amount_bdt DECIMAL(10,4) NOT NULL DEFAULT 0.0000,
+      sms_count INT NOT NULL DEFAULT 0,
+      rate_per_sms DECIMAL(10,4) DEFAULT 0.3500,
+      balance_after DECIMAL(10,4) NOT NULL DEFAULT 0.0000,
+      description VARCHAR(255) NOT NULL,
+      payment_method VARCHAR(50) DEFAULT NULL,
+      sender_number VARCHAR(50) DEFAULT NULL,
+      transaction_id VARCHAR(100) DEFAULT NULL,
+      status VARCHAR(20) DEFAULT 'COMPLETED', -- 'PENDING', 'COMPLETED', 'REJECTED'
+      created_at DATETIME DEFAULT ${timestampDefault}
+    );
+  `);
+
+  // 20. SMS Queue & Logs (Android SIM + 3rd Party)
   await query(`
     CREATE TABLE IF NOT EXISTS sms_queue (
       id ${autoInc},
@@ -459,6 +501,9 @@ async function createTables() {
       recipient VARCHAR(30) NOT NULL,
       message ${textType} NOT NULL,
       status VARCHAR(20) DEFAULT 'PENDING',
+      cost_bdt DECIMAL(10,4) DEFAULT 0.0000,
+      sms_parts INT DEFAULT 1,
+      charged TINYINT(1) DEFAULT 0,
       attempts INT DEFAULT 0,
       error_reason VARCHAR(255) DEFAULT NULL,
       sent_at DATETIME DEFAULT NULL,
@@ -467,6 +512,9 @@ async function createTables() {
       updated_at DATETIME DEFAULT ${timestampDefault}
     );
   `);
+  await addColumnIfNotExists('sms_queue', 'cost_bdt', 'DECIMAL(10,4) DEFAULT 0.0000');
+  await addColumnIfNotExists('sms_queue', 'sms_parts', 'INT DEFAULT 1');
+  await addColumnIfNotExists('sms_queue', 'charged', 'TINYINT(1) DEFAULT 0');
 }
 
 /**
@@ -633,7 +681,10 @@ async function seedDefaults() {
       { key: 'payment_bkash_number', val: '01700000000 (Merchant / Personal)', desc: 'bKash Account Number' },
       { key: 'payment_nagad_number', val: '01800000000 (Merchant / Personal)', desc: 'Nagad Account Number' },
       { key: 'payment_rocket_number', val: '01900000000 (Personal)', desc: 'Rocket Account Number' },
-      { key: 'payment_bank_details', val: 'Bank: City Bank | A/C: 1102938471 | Name: Unique Notify Ltd', desc: 'Bank Transfer Details' }
+      { key: 'payment_bank_details', val: 'Bank: City Bank | A/C: 1102938471 | Name: Unique Notify Ltd', desc: 'Bank Transfer Details' },
+      { key: 'default_sms_rate', val: '0.35', desc: 'Default price in BDT per SMS part for Pay-as-you-go' },
+      { key: 'min_sms_recharge', val: '50.00', desc: 'Minimum SMS Wallet Recharge Amount in BDT' },
+      { key: 'active_sms_gateway', val: 'greenweb', desc: 'Default active third-party SMS gateway for system' }
     ];
 
     for (const s of defaultSettings) {
@@ -645,6 +696,73 @@ async function seedDefaults() {
         );
       }
     }
+
+    // 8. Seed Default SMS Packages (Pay-as-you-go Bundles)
+    const smsPkgCount = await getOne('SELECT COUNT(*) as c FROM sms_packages');
+    if (!smsPkgCount || smsPkgCount.c === 0) {
+      const defaultSmsPackages = [
+        {
+          name: 'Starter SMS Pack',
+          sms_count: 200,
+          price_bdt: 70.00,
+          price_per_sms: 0.35,
+          validity_days: 180,
+          is_popular: 0,
+          features: JSON.stringify(['200 SMS Credits', 'Rate: ৳0.35 / SMS', 'High Speed Delivery', 'Delivery Reports', '180 Days Validity'])
+        },
+        {
+          name: 'Business 1K Pack',
+          sms_count: 1000,
+          price_bdt: 350.00,
+          price_per_sms: 0.35,
+          validity_days: 365,
+          is_popular: 1,
+          features: JSON.stringify(['1,000 SMS Credits', 'Rate: ৳0.35 / SMS', 'Priority Queue Tier', 'Real-time DLR & Webhook', '365 Days Validity', 'Bangla & English Support'])
+        },
+        {
+          name: 'Corporate 5K Pack',
+          sms_count: 5000,
+          price_bdt: 1600.00,
+          price_per_sms: 0.32,
+          validity_days: 365,
+          is_popular: 0,
+          features: JSON.stringify(['5,000 SMS Credits', 'Discounted Rate: ৳0.32 / SMS', 'High-Volume Dedicated Route', 'API & Excel Bulk Upload', '365 Days Validity', 'Priority Support'])
+        },
+        {
+          name: 'Enterprise 20K Pack',
+          sms_count: 20000,
+          price_bdt: 5800.00,
+          price_per_sms: 0.29,
+          validity_days: 365,
+          is_popular: 0,
+          features: JSON.stringify(['20,000 SMS Credits', 'VIP Rate: ৳0.29 / SMS', 'Dedicated Server Pipeline', 'Masking / Sender ID Ready', 'Lifetime Validity', '24/7 Account Manager'])
+        }
+      ];
+
+      for (const pkg of defaultSmsPackages) {
+        await query(
+          'INSERT INTO sms_packages (name, sms_count, price_bdt, price_per_sms, validity_days, is_popular, features) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [pkg.name, pkg.sms_count, pkg.price_bdt, pkg.price_per_sms, pkg.validity_days, pkg.is_popular, pkg.features]
+        );
+      }
+      console.log('[Seed] Created default SMS packages');
+    }
+
+    // 9. Seed Default Admin SMS Gateways (Greenweb, BulkSMSBD, Custom HTTP)
+    const gwCount = await getOne('SELECT COUNT(*) as c FROM sms_gateways WHERE user_id IS NULL');
+    if (!gwCount || gwCount.c === 0) {
+      await query(
+        `INSERT INTO sms_gateways (user_id, provider_name, api_url, api_key, sender_id, is_default, is_active, notes)
+         VALUES 
+         (NULL, 'greenweb', 'http://api.greenweb.com.bd/api.php', 'YOUR_GREENWEB_API_TOKEN', 'UNIQUE', 1, 1, 'Greenweb Bangladesh Direct SMS Gateway'),
+         (NULL, 'bulksmsbd', 'http://bulksmsbd.net/api/smsapi', 'YOUR_BULKSMSBD_KEY', 'UNIQUE', 0, 1, 'BulkSMSBD Gateway Driver'),
+         (NULL, 'custom_http', 'http://your-provider.com/api/send?to={to}&msg={message}&key={api_key}', '', '', 0, 0, 'Generic HTTP GET/POST API Gateway')`
+      );
+      console.log('[Seed] Created default Admin SMS Gateways');
+    }
+
+    // 10. Give demo user initial SMS balance for instant testing if 0
+    await query('UPDATE users SET sms_balance = 50.0000, sms_credits = 100 WHERE id = 1 AND sms_balance = 0', []);
   } catch (err) {
     console.error('[Seed] Error seeding defaults:', err.message);
   }

@@ -364,63 +364,230 @@ router.post('/jobs/:id/retry', flexibleAuth, async (req, res) => {
   }
 });
 
+/* ════════════════════════════════════════════════════
+   3. USER SMS WALLET, PACKAGES & RECHARGE ENDPOINTS
+   ════════════════════════════════════════════════════ */
+
 /**
- * GET /api/v1/sms/settings/third-party
- * Get 3rd party SMS gateway settings
+ * GET /api/v1/sms/wallet
+ * Returns user's SMS balance, SMS credits, effective rate per SMS, and transaction summary
  */
-router.get('/settings/third-party', flexibleAuth, async (req, res) => {
+router.get('/wallet', flexibleAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
-    const rows = await db.query('SELECT provider_name, api_url, api_key, sender_id, is_active FROM sms_gateways WHERE user_id = ? OR user_id IS NULL', [userId]);
-    const configMap = {};
-    for (const row of rows) {
-      configMap[row.provider_name] = {
-        token: row.api_key,
-        api_key: row.api_key,
-        url: row.api_url,
-        sender_id: row.sender_id,
-        is_active: !!row.is_active
-      };
+    const user = await db.getOne(
+      'SELECT id, name, email, sms_balance, sms_credits, custom_sms_rate FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
     }
-    return res.status(200).json({ success: true, data: configMap });
+
+    const defaultRateSetting = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "default_sms_rate"');
+    const minRechargeSetting = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "min_sms_recharge"');
+    const baseRate = parseFloat(defaultRateSetting?.setting_value || '0.35');
+    const effectiveRate = user.custom_sms_rate !== null ? parseFloat(user.custom_sms_rate) : baseRate;
+
+    // Payment instruction numbers
+    const bkash = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "payment_bkash_number"');
+    const nagad = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "payment_nagad_number"');
+    const rocket = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "payment_rocket_number"');
+
+    // Recent 10 transactions
+    const recentTransactions = await db.query(
+      'SELECT * FROM sms_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 10',
+      [userId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        sms_balance: parseFloat(user.sms_balance || 0),
+        sms_credits: parseInt(user.sms_credits || 0, 10),
+        rate_per_sms: effectiveRate,
+        min_recharge: parseFloat(minRechargeSetting?.setting_value || '50.00'),
+        payment_methods: {
+          bkash: bkash?.setting_value || '01700000000',
+          nagad: nagad?.setting_value || '01800000000',
+          rocket: rocket?.setting_value || '01900000000'
+        },
+        recent_transactions: recentTransactions
+      }
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
 
 /**
- * POST /api/v1/sms/settings/third-party
- * Save or update 3rd party SMS gateway configuration (Greenweb, BulkSMSBD, Custom HTTP)
+ * GET /api/v1/sms/packages
+ * List all available active SMS packages for purchase
  */
-router.post('/settings/third-party', flexibleAuth, async (req, res) => {
-  const { provider_name, api_url, url, api_key, token, sender_id, is_active } = req.body;
-  if (!provider_name) {
-    return res.status(400).json({ success: false, message: 'Provider name is required.' });
-  }
+router.get('/packages', flexibleAuth, async (req, res) => {
+  try {
+    const packages = await db.query('SELECT * FROM sms_packages WHERE is_active = 1 ORDER BY price_bdt ASC');
+    const formatted = packages.map(p => {
+      let parsedFeatures = [];
+      try {
+        parsedFeatures = typeof p.features === 'string' ? JSON.parse(p.features) : (p.features || []);
+      } catch {
+        parsedFeatures = [p.features];
+      }
+      return {
+        ...p,
+        price_bdt: parseFloat(p.price_bdt),
+        price_per_sms: parseFloat(p.price_per_sms),
+        features: parsedFeatures
+      };
+    });
 
-  const finalKey = api_key || token || '';
-  const finalUrl = api_url || url || '';
+    return res.status(200).json({ success: true, data: formatted });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/sms/packages/purchase
+ * Purchase an SMS package using wallet balance or manual payment submission
+ */
+router.post('/packages/purchase', flexibleAuth, async (req, res) => {
+  const { package_id, packageId, payment_method, sender_number, transaction_id } = req.body;
+  const targetPkgId = package_id || packageId;
+
+  if (!targetPkgId) {
+    return res.status(400).json({ success: false, message: 'Package ID is required.' });
+  }
 
   try {
     const userId = getUserId(req);
-    const existing = await db.getOne('SELECT id FROM sms_gateways WHERE provider_name = ? AND (user_id = ? OR user_id IS NULL)', [provider_name, userId]);
-
-    if (existing) {
-      await db.query(
-        `UPDATE sms_gateways 
-         SET api_url = ?, api_key = ?, sender_id = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [finalUrl, finalKey, sender_id || '', is_active ? 1 : 0, existing.id]
-      );
-    } else {
-      await db.query(
-        `INSERT INTO sms_gateways (user_id, provider_name, api_url, api_key, sender_id, is_active)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, provider_name, finalUrl, finalKey, sender_id || '', is_active ? 1 : 0]
-      );
+    const pkg = await db.getOne('SELECT * FROM sms_packages WHERE id = ? AND is_active = 1', [targetPkgId]);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'SMS package not found or inactive.' });
     }
 
-    return res.status(200).json({ success: true, message: `Third-party SMS provider '${provider_name}' saved successfully.` });
+    const user = await db.getOne('SELECT id, sms_balance, sms_credits FROM users WHERE id = ?', [userId]);
+    const pkgPrice = parseFloat(pkg.price_bdt);
+    const smsUnits = parseInt(pkg.sms_count, 10);
+
+    // If payment method is 'wallet'
+    if (payment_method === 'wallet') {
+      const userBalance = parseFloat(user.sms_balance || 0);
+      if (userBalance < pkgPrice) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient wallet balance. Required: ৳${pkgPrice.toFixed(2)}, Available: ৳${userBalance.toFixed(2)}. Please recharge first.`
+        });
+      }
+
+      const newBalance = userBalance - pkgPrice;
+      const newCredits = parseInt(user.sms_credits || 0, 10) + smsUnits;
+
+      await db.query('UPDATE users SET sms_balance = ?, sms_credits = ? WHERE id = ?', [newBalance, newCredits, userId]);
+      await db.query(
+        `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, payment_method, status, created_at)
+         VALUES (?, 'PACKAGE_PURCHASE', ?, ?, ?, ?, ?, 'wallet', 'COMPLETED', CURRENT_TIMESTAMP)`,
+        [userId, pkgPrice, smsUnits, parseFloat(pkg.price_per_sms), newBalance, `Purchased '${pkg.name}' (${smsUnits} SMS)`]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Package '${pkg.name}' activated successfully. ${smsUnits} SMS credits added.`,
+        data: {
+          sms_credits: newCredits,
+          sms_balance: newBalance
+        }
+      });
+    }
+
+    // Otherwise Manual Payment (bKash / Nagad / Rocket)
+    if (!transaction_id) {
+      return res.status(400).json({ success: false, message: 'Transaction ID is required for mobile recharge verification.' });
+    }
+
+    await db.query(
+      `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, payment_method, sender_number, transaction_id, status, created_at)
+       VALUES (?, 'PACKAGE_PURCHASE', ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)`,
+      [
+        userId,
+        pkgPrice,
+        smsUnits,
+        parseFloat(pkg.price_per_sms),
+        parseFloat(user.sms_balance || 0),
+        `Purchase Request: '${pkg.name}' (${smsUnits} SMS)`,
+        payment_method || 'bkash',
+        sender_number || null,
+        transaction_id
+      ]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Package purchase request submitted. We will verify Transaction ID: ${transaction_id} and credit ${smsUnits} SMS instantly.`,
+      status: 'PENDING'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/sms/wallet/recharge
+ * Submit a top-up request to recharge SMS cash balance
+ */
+router.post('/wallet/recharge', flexibleAuth, async (req, res) => {
+  const { amount, amount_bdt, payment_method, sender_number, transaction_id } = req.body;
+  const targetAmount = parseFloat(amount || amount_bdt || 0);
+
+  if (!targetAmount || targetAmount <= 0) {
+    return res.status(400).json({ success: false, message: 'Valid recharge amount is required.' });
+  }
+  if (!transaction_id) {
+    return res.status(400).json({ success: false, message: 'Transaction ID is required for verification.' });
+  }
+
+  try {
+    const userId = getUserId(req);
+    const user = await db.getOne('SELECT id, sms_balance FROM users WHERE id = ?', [userId]);
+
+    await db.query(
+      `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, payment_method, sender_number, transaction_id, status, created_at)
+       VALUES (?, 'TOPUP_RECHARGE', ?, 0, 0.35, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)`,
+      [
+        userId,
+        targetAmount,
+        parseFloat(user.sms_balance || 0),
+        `Top-up Request ৳${targetAmount.toFixed(2)} via ${(payment_method || 'bkash').toUpperCase()}`,
+        payment_method || 'bkash',
+        sender_number || null,
+        transaction_id
+      ]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Recharge request of ৳${targetAmount.toFixed(2)} submitted. Verification in progress.`,
+      status: 'PENDING'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * GET /api/v1/sms/transactions
+ * Get paginated SMS wallet transaction history
+ */
+router.get('/transactions', flexibleAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const limit = parseInt(req.query.limit || '50', 10);
+    const rows = await db.query(
+      'SELECT * FROM sms_transactions WHERE user_id = ? ORDER BY id DESC LIMIT ?',
+      [userId, limit]
+    );
+    return res.status(200).json({ success: true, data: rows, count: rows.length });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

@@ -123,14 +123,18 @@ async function api(path, opts = {}) {
    SIDEBAR NAVIGATION
 ═══════════════════════════════════════════ */
 const PAGE_META = {
-  overview: { title: 'Dashboard Overview',             sub: 'SaaS platform status and recent activity' },
-  users:    { title: 'Client Accounts',                sub: 'Manage clients, plans, credits, and account status' },
-  payments: { title: 'Payments & Billing Approvals',   sub: 'Review and approve offline payment transactions' },
-  gateways: { title: 'Gateway Engine Status',          sub: 'Monitor Meta Cloud API and Baileys QR sessions' },
-  audit:    { title: 'Security Audit Logs',            sub: 'Immutable log of all security events' },
-  antiban:  { title: 'Anti-Ban Engine Configuration',  sub: 'Global WhatsApp safety parameters for all clients' },
-  settings: { title: 'Payment Channels & System Settings', sub: 'bKash, Nagad, Rocket, Bank transfer details' },
-  plans:    { title: 'Subscription Plans',             sub: 'Active SaaS pricing tiers overview' },
+  overview:        { title: 'Dashboard Overview',             sub: 'SaaS platform status and recent activity' },
+  users:           { title: 'Client Accounts',                sub: 'Manage clients, plans, credits, and account status' },
+  payments:        { title: 'Payments & Billing Approvals',   sub: 'Review and approve offline payment transactions' },
+  gateways:        { title: 'Gateway Engine Status',          sub: 'Monitor Meta Cloud API and Baileys QR sessions' },
+  smsgateways:     { title: 'Third-Party SMS Gateways',       sub: 'Super Admin only: Greenweb, BulkSMSBD, Custom HTTP' },
+  smsbilling:      { title: 'SMS Pricing & Package Plans',    sub: 'Set Pay-as-you-go rate (৳0.35) and create SMS bundles' },
+  smsusers:        { title: 'User SMS Wallets',               sub: 'Monitor client cash balance, SMS credits, and rates' },
+  smstransactions: { title: 'SMS Top-up & Package Approvals', sub: 'Review pending client mobile recharge requests' },
+  audit:           { title: 'Security Audit Logs',            sub: 'Immutable log of all security events' },
+  antiban:         { title: 'Anti-Ban Engine Configuration',  sub: 'Global WhatsApp safety parameters for all clients' },
+  settings:        { title: 'Payment Channels & System Settings', sub: 'bKash, Nagad, Rocket, Bank transfer details' },
+  plans:           { title: 'Subscription Plans',             sub: 'Active SaaS pricing tiers overview' },
 };
 
 function gotoPage(name) {
@@ -160,14 +164,18 @@ function gotoPage(name) {
 
   // Load data for page
   const loaders = {
-    overview: loadOverview,
-    users:    loadUsers,
-    payments: loadPayments,
-    gateways: loadGateways,
-    audit:    loadAuditLogs,
-    antiban:  loadAntiBanSettings,
-    settings: loadSettings,
-    plans:    loadPlans,
+    overview:        loadOverview,
+    users:           loadUsers,
+    payments:        loadPayments,
+    gateways:        loadGateways,
+    smsgateways:     loadSmsGateways,
+    smsbilling:      loadSmsBilling,
+    smsusers:        loadSmsUsers,
+    smstransactions: loadSmsTransactions,
+    audit:           loadAuditLogs,
+    antiban:         loadAntiBanSettings,
+    settings:        loadSettings,
+    plans:           loadPlans,
   };
   if (loaders[name]) loaders[name]();
 
@@ -713,4 +721,571 @@ function showToast(msg, type = 'success') {
   zone.appendChild(toast);
   lucide.createIcons();
   setTimeout(() => toast.remove(), 4000);
+}
+
+/* ═══════════════════════════════════════════
+   SMS ADMIN CONTROLLERS
+═══════════════════════════════════════════ */
+
+let allSmsGateways = [];
+let allSmsPackages = [];
+
+// 1. SMS Gateways
+async function loadSmsGateways() {
+  const grid = document.getElementById('smsGatewaysGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="col-span-3 text-center text-xs text-slate-400 py-8">Loading SMS Gateways...</div>';
+
+  try {
+    const d = await api('/sms/gateways');
+    if (!d.success) return;
+    allSmsGateways = d.gateways || [];
+    grid.innerHTML = '';
+
+    if (allSmsGateways.length === 0) {
+      grid.innerHTML = '<div class="col-span-3 text-center text-xs text-slate-400 py-8">No SMS Gateways configured. Click "Add Gateway Provider" above.</div>';
+      return;
+    }
+
+    allSmsGateways.forEach(gw => {
+      const card = document.createElement('div');
+      card.className = `p-5 rounded-2xl border ${gw.is_active ? 'border-slate-200 bg-white shadow-xs' : 'border-slate-200 bg-slate-50/70 opacity-75'}`;
+      card.innerHTML = `
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl ${gw.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-500'} flex items-center justify-center font-bold text-xs">
+              <i data-lucide="radio" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="font-bold text-slate-900 text-xs">${esc(gw.provider_name).toUpperCase()}</p>
+              <p class="text-[11px] text-slate-500 font-mono truncate max-w-[150px]">${esc(gw.api_url)}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            ${gw.is_default ? '<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Default</span>' : ''}
+            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${gw.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-600'}">
+              ${gw.is_active ? 'Active' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+
+        <div class="space-y-1.5 text-xs text-slate-600 border-t border-slate-100 pt-3 mb-4">
+          <div class="flex justify-between">
+            <span class="text-slate-400 text-[11px]">Mask / Sender ID:</span>
+            <span class="font-mono font-semibold text-slate-800">${esc(gw.sender_id || 'None')}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400 text-[11px]">API Key:</span>
+            <span class="font-mono text-slate-600">${gw.api_key ? '••••' + gw.api_key.slice(-4) : 'Not set'}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400 text-[11px]">Notes:</span>
+            <span class="text-slate-700 truncate max-w-[160px]">${esc(gw.notes || '—')}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between border-t border-slate-100 pt-3">
+          <button onclick='openTestSmsModal(${gw.id})' class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>Test
+          </button>
+          <div class="flex items-center gap-1.5">
+            ${!gw.is_default ? `<button onclick="setDefaultSmsGateway(${gw.id})" class="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-medium">Set Default</button>` : ''}
+            <button onclick="toggleSmsGateway(${gw.id})" class="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-medium">
+              ${gw.is_active ? 'Disable' : 'Enable'}
+            </button>
+            <button onclick='editSmsGateway(${JSON.stringify(gw).replace(/'/g, "&apos;")})' class="p-1.5 text-slate-500 hover:text-slate-800">
+              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+            </button>
+            <button onclick="deleteSmsGateway(${gw.id})" class="p-1.5 text-rose-500 hover:text-rose-700">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+    lucide.createIcons();
+  } catch (err) { console.error(err); }
+}
+
+function openAddSmsGatewayModal() {
+  document.getElementById('modalSmsGatewayTitle').textContent = 'Add Third-Party SMS Gateway';
+  document.getElementById('gw-id').value = '';
+  document.getElementById('gw-provider').value = 'greenweb';
+  document.getElementById('gw-url').value = 'http://api.greenweb.com.bd/api.php';
+  document.getElementById('gw-key').value = '';
+  document.getElementById('gw-sender').value = 'UNIQUE';
+  document.getElementById('gw-default').value = '0';
+  document.getElementById('gw-notes').value = '';
+  document.getElementById('modalSmsGateway').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function editSmsGateway(gw) {
+  document.getElementById('modalSmsGatewayTitle').textContent = 'Edit SMS Gateway';
+  document.getElementById('gw-id').value = gw.id;
+  document.getElementById('gw-provider').value = gw.provider_name;
+  document.getElementById('gw-url').value = gw.api_url;
+  document.getElementById('gw-key').value = gw.api_key || '';
+  document.getElementById('gw-sender').value = gw.sender_id || '';
+  document.getElementById('gw-default').value = gw.is_default ? '1' : '0';
+  document.getElementById('gw-notes').value = gw.notes || '';
+  document.getElementById('modalSmsGateway').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeSmsGatewayModal() {
+  document.getElementById('modalSmsGateway').classList.add('hidden');
+}
+
+async function saveSmsGateway(e) {
+  e.preventDefault();
+  const id = document.getElementById('gw-id').value;
+  const provider_name = document.getElementById('gw-provider').value;
+  const api_url = document.getElementById('gw-url').value.trim();
+  const api_key = document.getElementById('gw-key').value.trim();
+  const sender_id = document.getElementById('gw-sender').value.trim();
+  const is_default = document.getElementById('gw-default').value === '1';
+  const notes = document.getElementById('gw-notes').value.trim();
+
+  try {
+    const res = await api('/sms/gateways', {
+      method: 'POST',
+      body: JSON.stringify({ id: id || undefined, provider_name, api_url, api_key, sender_id, is_default, is_active: 1, notes })
+    });
+    if (res.success) {
+      showToast(res.message);
+      closeSmsGatewayModal();
+      loadSmsGateways();
+    } else {
+      showToast(res.message || 'Failed to save gateway', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function toggleSmsGateway(id) {
+  try {
+    const res = await api(`/sms/gateways/${id}/toggle`, { method: 'POST' });
+    if (res.success) { showToast(res.message); loadSmsGateways(); }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function setDefaultSmsGateway(id) {
+  try {
+    const res = await api(`/sms/gateways/${id}/default`, { method: 'POST' });
+    if (res.success) { showToast(res.message); loadSmsGateways(); }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deleteSmsGateway(id) {
+  if (!confirm('Are you sure you want to delete this SMS Gateway?')) return;
+  try {
+    const res = await api(`/sms/gateways/${id}`, { method: 'DELETE' });
+    if (res.success) { showToast(res.message); loadSmsGateways(); }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function openTestSmsModal(gwId) {
+  const sel = document.getElementById('test-sms-gateway');
+  sel.innerHTML = '';
+  allSmsGateways.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = `${g.provider_name.toUpperCase()} (${g.is_default ? 'Default' : 'Secondary'})`;
+    if (gwId && g.id == gwId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  document.getElementById('modalSmsTest').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeTestSmsModal() {
+  document.getElementById('modalSmsTest').classList.add('hidden');
+}
+
+async function handleTestSmsSend(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btnTestSmsSubmit');
+  const gateway_id = document.getElementById('test-sms-gateway').value;
+  const phone = document.getElementById('test-sms-phone').value.trim();
+  const message = document.getElementById('test-sms-message').value.trim();
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner">&#8635;</span> Dispatching...';
+
+  try {
+    const res = await api('/sms/gateways/test-send', {
+      method: 'POST',
+      body: JSON.stringify({ gateway_id, phone, message })
+    });
+    if (res.success) {
+      showToast(res.message);
+      closeTestSmsModal();
+    } else {
+      showToast(res.message || 'Dispatch test failed', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="send" class="w-3.5 h-3.5"></i>Dispatch Test SMS';
+    lucide.createIcons();
+  }
+}
+
+// 2. SMS Pricing & Packages
+async function loadSmsBilling() {
+  try {
+    // Load Settings
+    const setRes = await api('/sms/settings');
+    if (setRes.success) {
+      document.getElementById('sms-set-rate').value = setRes.settings.default_sms_rate;
+      document.getElementById('sms-set-min').value = setRes.settings.min_sms_recharge;
+    }
+
+    // Load Packages
+    const pkgRes = await api('/sms/packages');
+    if (pkgRes.success) {
+      allSmsPackages = pkgRes.packages || [];
+      const grid = document.getElementById('smsPackagesAdminGrid');
+      grid.innerHTML = '';
+
+      if (allSmsPackages.length === 0) {
+        grid.innerHTML = '<div class="col-span-4 text-center text-xs text-slate-400 py-6">No SMS packages created yet.</div>';
+        return;
+      }
+
+      allSmsPackages.forEach(p => {
+        let features = [];
+        try { features = typeof p.features === 'string' ? JSON.parse(p.features) : (p.features || []); } catch { features = []; }
+
+        const card = document.createElement('div');
+        card.className = `p-5 rounded-2xl border ${p.is_popular ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500/20' : 'border-slate-200'} bg-white flex flex-col justify-between`;
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-slate-900">${esc(p.name)}</span>
+              ${p.is_popular ? '<span class="px-2 py-0.5 text-[9px] font-bold uppercase rounded-full bg-emerald-100 text-emerald-800">Popular</span>' : ''}
+            </div>
+            <div class="mb-3">
+              <span class="text-2xl font-black text-slate-900">৳${fmt(p.price_bdt)}</span>
+              <span class="text-xs text-slate-500">/ ${fmt(p.sms_count)} SMS</span>
+            </div>
+            <div class="p-2.5 bg-emerald-50/60 border border-emerald-100 rounded-xl mb-3 text-[11px] font-semibold text-emerald-800 flex justify-between">
+              <span>Per SMS Cost:</span>
+              <span>৳${Number(p.price_per_sms).toFixed(3)}</span>
+            </div>
+            <ul class="space-y-1.5 text-xs text-slate-600 mb-4">
+              <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i>${fmt(p.sms_count)} SMS Units</li>
+              <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i>${p.validity_days} Days Validity</li>
+              ${features.map(f => `<li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i>${esc(f)}</li>`).join('')}
+            </ul>
+          </div>
+          <div class="border-t border-slate-100 pt-3 flex items-center justify-between">
+            <span class="text-[11px] font-medium ${p.is_active ? 'text-emerald-600' : 'text-slate-400'}">${p.is_active ? 'Active' : 'Disabled'}</span>
+            <div class="flex items-center gap-1">
+              <button onclick='editSmsPackage(${JSON.stringify(p).replace(/'/g, "&apos;")})' class="p-1.5 text-slate-500 hover:text-slate-800">
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="deleteSmsPackage(${p.id})" class="p-1.5 text-rose-500 hover:text-rose-700">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+  } catch (err) { console.error(err); }
+}
+
+async function saveSmsPricingSettings(e) {
+  e.preventDefault();
+  const default_sms_rate = document.getElementById('sms-set-rate').value;
+  const min_sms_recharge = document.getElementById('sms-set-min').value;
+
+  try {
+    const res = await api('/sms/settings', {
+      method: 'POST',
+      body: JSON.stringify({ default_sms_rate, min_sms_recharge })
+    });
+    if (res.success) showToast(res.message);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function calculatePkgRate() {
+  const count = parseFloat(document.getElementById('pkg-count').value || 0);
+  const price = parseFloat(document.getElementById('pkg-price').value || 0);
+  if (count > 0 && price > 0) {
+    document.getElementById('pkg-rate').value = (price / count).toFixed(3);
+  } else {
+    document.getElementById('pkg-rate').value = '0.350';
+  }
+}
+
+function openAddSmsPackageModal() {
+  document.getElementById('modalSmsPackageTitle').textContent = 'Create SMS Package';
+  document.getElementById('pkg-id').value = '';
+  document.getElementById('pkg-name').value = '';
+  document.getElementById('pkg-count').value = '1000';
+  document.getElementById('pkg-price').value = '350.00';
+  document.getElementById('pkg-validity').value = '365';
+  document.getElementById('pkg-features').value = 'Priority Queue Tier\nReal-time DLR\n365 Days Validity';
+  document.getElementById('pkg-popular').checked = false;
+  document.getElementById('pkg-active').checked = true;
+  calculatePkgRate();
+  document.getElementById('modalSmsPackage').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function editSmsPackage(p) {
+  document.getElementById('modalSmsPackageTitle').textContent = 'Edit SMS Package';
+  document.getElementById('pkg-id').value = p.id;
+  document.getElementById('pkg-name').value = p.name;
+  document.getElementById('pkg-count').value = p.sms_count;
+  document.getElementById('pkg-price').value = p.price_bdt;
+  document.getElementById('pkg-validity').value = p.validity_days || 365;
+  
+  let featText = '';
+  try {
+    const arr = typeof p.features === 'string' ? JSON.parse(p.features) : (p.features || []);
+    featText = Array.isArray(arr) ? arr.join('\n') : '';
+  } catch { featText = ''; }
+  document.getElementById('pkg-features').value = featText;
+  document.getElementById('pkg-popular').checked = !!p.is_popular;
+  document.getElementById('pkg-active').checked = !!p.is_active;
+  calculatePkgRate();
+  document.getElementById('modalSmsPackage').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeSmsPackageModal() {
+  document.getElementById('modalSmsPackage').classList.add('hidden');
+}
+
+async function saveSmsPackage(e) {
+  e.preventDefault();
+  const id = document.getElementById('pkg-id').value;
+  const name = document.getElementById('pkg-name').value.trim();
+  const sms_count = document.getElementById('pkg-count').value;
+  const price_bdt = document.getElementById('pkg-price').value;
+  const price_per_sms = document.getElementById('pkg-rate').value;
+  const validity_days = document.getElementById('pkg-validity').value;
+  const features = document.getElementById('pkg-features').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const is_popular = document.getElementById('pkg-popular').checked;
+  const is_active = document.getElementById('pkg-active').checked;
+
+  try {
+    const res = await api('/sms/packages', {
+      method: 'POST',
+      body: JSON.stringify({ id: id || undefined, name, sms_count, price_bdt, price_per_sms, validity_days, features, is_popular, is_active })
+    });
+    if (res.success) {
+      showToast(res.message);
+      closeSmsPackageModal();
+      loadSmsBilling();
+    } else {
+      showToast(res.message || 'Failed to save package', 'error');
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deleteSmsPackage(id) {
+  if (!confirm('Are you sure you want to delete this SMS package?')) return;
+  try {
+    const res = await api(`/sms/packages/${id}`, { method: 'DELETE' });
+    if (res.success) { showToast(res.message); loadSmsBilling(); }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// 3. User SMS Wallets
+async function loadSmsUsers() {
+  const tbody = document.getElementById('smsUsersTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-6">Loading client SMS wallets...</td></tr>';
+
+  try {
+    const d = await api('/sms/users');
+    if (!d.success) return;
+    const users = d.users || [];
+    tbody.innerHTML = '';
+
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-6">No users found.</td></tr>';
+      return;
+    }
+
+    users.forEach(u => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 transition';
+      tr.innerHTML = `
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900">${esc(u.name)}</p>
+          <p class="text-[11px] text-slate-500 font-mono">${esc(u.email)}</p>
+        </td>
+        <td class="py-3 px-4 font-mono font-bold text-emerald-700">
+          ৳${Number(u.sms_balance || 0).toFixed(2)}
+        </td>
+        <td class="py-3 px-4 font-mono font-semibold text-slate-800">
+          ${fmt(u.sms_credits || 0)} SMS
+        </td>
+        <td class="py-3 px-4 font-mono text-slate-600">
+          ${u.custom_sms_rate ? `<span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold">৳${Number(u.custom_sms_rate).toFixed(2)} (Custom)</span>` : '<span class="text-slate-400">৳0.35 (Default)</span>'}
+        </td>
+        <td class="py-3 px-4 text-[11px] text-slate-500">${fmtDate(u.created_at)}</td>
+        <td class="py-3 px-4 text-right">
+          <button onclick='openAdjustSmsModal(${JSON.stringify(u).replace(/'/g, "&apos;")})' class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs transition flex items-center gap-1 ml-auto">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>Adjust Balance
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    lucide.createIcons();
+  } catch (err) { console.error(err); }
+}
+
+function openAdjustSmsModal(u) {
+  document.getElementById('adj-user-id').value = u.id;
+  document.getElementById('modalSmsUserName').textContent = `Adjust SMS: ${u.name}`;
+  document.getElementById('modalSmsUserEmail').textContent = u.email;
+  document.getElementById('adj-curr-cash').textContent = `৳${Number(u.sms_balance || 0).toFixed(2)}`;
+  document.getElementById('adj-curr-credits').textContent = `${fmt(u.sms_credits || 0)} SMS`;
+  document.getElementById('adj-amount').value = '';
+  document.getElementById('adj-credits').value = '';
+  document.getElementById('adj-custom-rate').value = u.custom_sms_rate || '';
+  document.getElementById('adj-note').value = '';
+  document.getElementById('modalAdjustSmsUser').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeAdjustSmsModal() {
+  document.getElementById('modalAdjustSmsUser').classList.add('hidden');
+}
+
+async function handleAdjustSmsSubmit(e) {
+  e.preventDefault();
+  const userId = document.getElementById('adj-user-id').value;
+  const action = document.getElementById('adj-action').value;
+  const amount_bdt = document.getElementById('adj-amount').value;
+  const sms_credits = document.getElementById('adj-credits').value;
+  const custom_sms_rate = document.getElementById('adj-custom-rate').value;
+  const note = document.getElementById('adj-note').value.trim();
+
+  try {
+    const res = await api(`/sms/users/${userId}/adjust-balance`, {
+      method: 'POST',
+      body: JSON.stringify({ action, amount_bdt, sms_credits, custom_sms_rate, note })
+    });
+    if (res.success) {
+      showToast(res.message);
+      closeAdjustSmsModal();
+      loadSmsUsers();
+    } else {
+      showToast(res.message || 'Adjustment failed', 'error');
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// 4. SMS Top-up & Transactions Approval
+async function loadSmsTransactions() {
+  const tbody = document.getElementById('smsTransactionsTbody');
+  if (!tbody) return;
+  const statusFilter = document.getElementById('smsTxStatusFilter')?.value || 'all';
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center text-slate-400 py-6">Loading SMS transactions...</td></tr>';
+
+  try {
+    const d = await api(`/sms/transactions?status=${statusFilter}`);
+    if (!d.success) return;
+    const list = d.transactions || [];
+    tbody.innerHTML = '';
+
+    // Update pending badge in sidebar
+    const pendingCount = list.filter(t => t.status === 'PENDING').length;
+    const badge = document.getElementById('sidebarSmsPendingBadge');
+    if (badge) {
+      if (pendingCount > 0) { badge.textContent = pendingCount; badge.classList.remove('hidden'); }
+      else { badge.classList.add('hidden'); }
+    }
+
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-slate-400 py-6">No SMS transactions recorded.</td></tr>';
+      return;
+    }
+
+    list.forEach(tx => {
+      const isPending = tx.status === 'PENDING';
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 transition';
+      tr.innerHTML = `
+        <td class="py-3 px-4 font-mono font-bold text-slate-800">
+          ${esc(tx.transaction_id || '#' + tx.id)}
+        </td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900">${esc(tx.user_name)}</p>
+          <p class="text-[11px] text-slate-500 font-mono">${esc(tx.user_email)}</p>
+        </td>
+        <td class="py-3 px-4">
+          <span class="font-semibold text-slate-800">${esc(tx.type)}</span>
+          <p class="text-[11px] text-slate-500">${esc(tx.description)}</p>
+        </td>
+        <td class="py-3 px-4 font-mono font-bold ${tx.amount_bdt > 0 ? 'text-emerald-700' : 'text-blue-700'}">
+          ${tx.amount_bdt > 0 ? '৳' + Number(tx.amount_bdt).toFixed(2) : fmt(tx.sms_count) + ' SMS'}
+        </td>
+        <td class="py-3 px-4">
+          <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">${esc(tx.payment_method || 'wallet')}</span>
+          ${tx.sender_number ? `<p class="text-[11px] text-slate-500 font-mono mt-0.5">${esc(tx.sender_number)}</p>` : ''}
+        </td>
+        <td class="py-3 px-4">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${tx.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : tx.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}">
+            ${tx.status}
+          </span>
+        </td>
+        <td class="py-3 px-4 text-[11px] text-slate-500 font-mono">${fmtDate(tx.created_at)}</td>
+        <td class="py-3 px-4 text-right">
+          ${isPending ? `
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="approveSmsTransaction(${tx.id})" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition">
+                Approve
+              </button>
+              <button onclick="rejectSmsTransaction(${tx.id})" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs transition">
+                Reject
+              </button>
+            </div>
+          ` : '<span class="text-slate-400 text-[11px]">Processed</span>'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    lucide.createIcons();
+  } catch (err) { console.error(err); }
+}
+
+async function approveSmsTransaction(id) {
+  if (!confirm(`Approve SMS transaction #${id} and credit client account?`)) return;
+  try {
+    const res = await api(`/sms/transactions/${id}/approve`, { method: 'POST' });
+    if (res.success) {
+      showToast(res.message);
+      loadSmsTransactions();
+    } else {
+      showToast(res.message || 'Approval failed', 'error');
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function rejectSmsTransaction(id) {
+  if (!confirm(`Reject SMS transaction #${id}?`)) return;
+  try {
+    const res = await api(`/sms/transactions/${id}/reject`, { method: 'POST' });
+    if (res.success) {
+      showToast(res.message);
+      loadSmsTransactions();
+    } else {
+      showToast(res.message || 'Rejection failed', 'error');
+    }
+  } catch (err) { showToast(err.message, 'error'); }
 }

@@ -12,6 +12,7 @@ const db = require('../config/database');
 const adminAuth = require('../middlewares/adminAuth');
 const { adminLoginLimiter } = require('../middlewares/rateLimiter');
 const { logAudit, getRecentLogs } = require('../services/auditService');
+const ThirdPartySmsGateway = require('../services/thirdPartySmsGateway');
 
 /* ────────────────────────────────────────────────
    AUTH
@@ -522,6 +523,343 @@ router.get('/plans', adminAuth, async (req, res) => {
   try {
     const plans = await db.query('SELECT * FROM plans ORDER BY price_bdt ASC');
     return res.status(200).json({ success: true, plans });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/* ────────────────────────────────────────────────
+   SMS ENGINE & BILLING CONTROL (SUPER ADMIN ONLY)
+──────────────────────────────────────────────── */
+
+// 1. SMS Overview Metrics
+router.get('/sms/overview', adminAuth, async (req, res) => {
+  try {
+    const totalQueued = await db.getOne('SELECT COUNT(*) as c FROM sms_queue');
+    const sentSms = await db.getOne('SELECT COUNT(*) as c FROM sms_queue WHERE status = "SENT" OR status = "DELIVERED"');
+    const failedSms = await db.getOne('SELECT COUNT(*) as c FROM sms_queue WHERE status = "FAILED"');
+    const totalCostCharged = await db.getOne('SELECT SUM(cost_bdt) as total FROM sms_queue WHERE charged = 1');
+    const totalRevenueTopup = await db.getOne('SELECT SUM(amount_bdt) as total FROM sms_transactions WHERE type IN ("TOPUP_RECHARGE", "PACKAGE_PURCHASE") AND status = "COMPLETED"');
+    const pendingTopups = await db.getOne('SELECT COUNT(*) as c FROM sms_transactions WHERE status = "PENDING"');
+    const activeGateways = await db.getOne('SELECT COUNT(*) as c FROM sms_gateways WHERE is_active = 1');
+
+    return res.status(200).json({
+      success: true,
+      metrics: {
+        totalQueued: totalQueued?.c || 0,
+        sentSms: sentSms?.c || 0,
+        failedSms: failedSms?.c || 0,
+        totalCostCharged: parseFloat(totalCostCharged?.total || 0),
+        totalRevenueTopup: parseFloat(totalRevenueTopup?.total || 0),
+        pendingTopups: pendingTopups?.c || 0,
+        activeGateways: activeGateways?.c || 0
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Third-Party SMS Gateways Management
+router.get('/sms/gateways', adminAuth, async (req, res) => {
+  try {
+    const gateways = await db.query('SELECT * FROM sms_gateways ORDER BY id ASC');
+    return res.status(200).json({ success: true, gateways });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/gateways', adminAuth, async (req, res) => {
+  const { id, provider_name, api_url, api_key, sender_id, is_default, is_active, notes } = req.body;
+  if (!provider_name) {
+    return res.status(400).json({ success: false, message: 'Provider name is required.' });
+  }
+
+  try {
+    if (is_default) {
+      await db.query('UPDATE sms_gateways SET is_default = 0');
+    }
+
+    if (id) {
+      await db.query(
+        `UPDATE sms_gateways 
+         SET provider_name = ?, api_url = ?, api_key = ?, sender_id = ?, is_default = ?, is_active = ?, notes = ?, updated_at = NOW()
+         WHERE id = ?`,
+        [provider_name, api_url || '', api_key || '', sender_id || '', is_default ? 1 : 0, is_active ? 1 : 0, notes || null, id]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO sms_gateways (provider_name, api_url, api_key, sender_id, is_default, is_active, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [provider_name, api_url || '', api_key || '', sender_id || '', is_default ? 1 : 0, is_active ? 1 : 0, notes || null]
+      );
+    }
+
+    return res.status(200).json({ success: true, message: `SMS Gateway '${provider_name}' saved successfully.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/gateways/:id/toggle', adminAuth, async (req, res) => {
+  try {
+    const gw = await db.getOne('SELECT id, is_active, provider_name FROM sms_gateways WHERE id = ?', [req.params.id]);
+    if (!gw) return res.status(404).json({ success: false, message: 'Gateway not found.' });
+
+    const newStatus = gw.is_active ? 0 : 1;
+    await db.query('UPDATE sms_gateways SET is_active = ? WHERE id = ?', [newStatus, req.params.id]);
+    return res.status(200).json({ success: true, message: `Gateway '${gw.provider_name}' is now ${newStatus ? 'Active' : 'Disabled'}.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/gateways/:id/default', adminAuth, async (req, res) => {
+  try {
+    await db.query('UPDATE sms_gateways SET is_default = 0');
+    await db.query('UPDATE sms_gateways SET is_default = 1, is_active = 1 WHERE id = ?', [req.params.id]);
+    return res.status(200).json({ success: true, message: 'Default SMS Gateway updated.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.delete('/sms/gateways/:id', adminAuth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM sms_gateways WHERE id = ?', [req.params.id]);
+    return res.status(200).json({ success: true, message: 'SMS Gateway removed.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/gateways/test-send', adminAuth, async (req, res) => {
+  const { gateway_id, phone, message } = req.body;
+  if (!phone || !message) {
+    return res.status(400).json({ success: false, message: 'Recipient phone and test message are required.' });
+  }
+
+  try {
+    const gw = gateway_id ? await db.getOne('SELECT * FROM sms_gateways WHERE id = ?', [gateway_id]) : await db.getOne('SELECT * FROM sms_gateways WHERE is_active = 1 LIMIT 1');
+    if (!gw) return res.status(404).json({ success: false, message: 'No configured SMS Gateway found.' });
+
+    const result = await ThirdPartySmsGateway.dispatch(gw, phone, message);
+    return res.status(200).json({ success: true, message: `Test SMS dispatched successfully via ${gw.provider_name}`, result });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: `Test dispatch error: ${err.message}` });
+  }
+});
+
+// 3. SMS Pricing & Package Settings
+router.get('/sms/settings', adminAuth, async (req, res) => {
+  try {
+    const defaultRate = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "default_sms_rate"');
+    const minRecharge = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "min_sms_recharge"');
+    return res.status(200).json({
+      success: true,
+      settings: {
+        default_sms_rate: parseFloat(defaultRate?.setting_value || '0.35'),
+        min_sms_recharge: parseFloat(minRecharge?.setting_value || '50.00')
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/settings', adminAuth, async (req, res) => {
+  const { default_sms_rate, min_sms_recharge } = req.body;
+  try {
+    if (default_sms_rate !== undefined) {
+      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "default_sms_rate"', [String(default_sms_rate)]);
+    }
+    if (min_sms_recharge !== undefined) {
+      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "min_sms_recharge"', [String(min_sms_recharge)]);
+    }
+    return res.status(200).json({ success: true, message: 'SMS Pricing settings saved successfully.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. SMS Packages CRUD
+router.get('/sms/packages', adminAuth, async (req, res) => {
+  try {
+    const packages = await db.query('SELECT * FROM sms_packages ORDER BY price_bdt ASC');
+    return res.status(200).json({ success: true, packages });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/packages', adminAuth, async (req, res) => {
+  const { id, name, sms_count, price_bdt, price_per_sms, validity_days, features, is_popular, is_active } = req.body;
+  if (!name || !sms_count || !price_bdt) {
+    return res.status(400).json({ success: false, message: 'Name, SMS count, and price are required.' });
+  }
+
+  const cleanFeatures = Array.isArray(features) ? JSON.stringify(features) : (typeof features === 'string' ? features : JSON.stringify([]));
+  const calcRate = price_per_sms || (parseFloat(price_bdt) / parseInt(sms_count));
+
+  try {
+    if (id) {
+      await db.query(
+        `UPDATE sms_packages 
+         SET name = ?, sms_count = ?, price_bdt = ?, price_per_sms = ?, validity_days = ?, features = ?, is_popular = ?, is_active = ?
+         WHERE id = ?`,
+        [name, parseInt(sms_count), parseFloat(price_bdt), calcRate, parseInt(validity_days || 365), cleanFeatures, is_popular ? 1 : 0, is_active ? 1 : 0, id]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO sms_packages (name, sms_count, price_bdt, price_per_sms, validity_days, features, is_popular, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, parseInt(sms_count), parseFloat(price_bdt), calcRate, parseInt(validity_days || 365), cleanFeatures, is_popular ? 1 : 0, is_active ? 1 : 0]
+      );
+    }
+
+    return res.status(200).json({ success: true, message: `SMS Package '${name}' saved successfully.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.delete('/sms/packages/:id', adminAuth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM sms_packages WHERE id = ?', [req.params.id]);
+    return res.status(200).json({ success: true, message: 'SMS Package deleted.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 5. User SMS Balances Management & Manual Adjustments
+router.get('/sms/users', adminAuth, async (req, res) => {
+  try {
+    const users = await db.query(
+      `SELECT id, name, email, phone, company, sms_balance, sms_credits, custom_sms_rate, created_at
+       FROM users 
+       ORDER BY id ASC`
+    );
+    return res.status(200).json({ success: true, users });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/users/:id/adjust-balance', adminAuth, async (req, res) => {
+  const { action, amount_bdt, sms_credits, custom_sms_rate, note } = req.body;
+  try {
+    const user = await db.getOne('SELECT id, name, sms_balance, sms_credits FROM users WHERE id = ?', [req.params.id]);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    let currentBalance = parseFloat(user.sms_balance || 0);
+    let currentCredits = parseInt(user.sms_credits || 0, 10);
+    const adjustBdt = parseFloat(amount_bdt || 0);
+    const adjustCredits = parseInt(sms_credits || 0, 10);
+
+    if (action === 'ADD_BALANCE') {
+      currentBalance += adjustBdt;
+    } else if (action === 'DEDUCT_BALANCE') {
+      currentBalance = Math.max(0, currentBalance - adjustBdt);
+    }
+
+    if (action === 'ADD_CREDITS') {
+      currentCredits += adjustCredits;
+    } else if (action === 'DEDUCT_CREDITS') {
+      currentCredits = Math.max(0, currentCredits - adjustCredits);
+    }
+
+    let customRateVal = user.custom_sms_rate;
+    if (custom_sms_rate !== undefined) {
+      customRateVal = custom_sms_rate === '' || custom_sms_rate === null ? null : parseFloat(custom_sms_rate);
+    }
+
+    await db.query(
+      'UPDATE users SET sms_balance = ?, sms_credits = ?, custom_sms_rate = ? WHERE id = ?',
+      [currentBalance, currentCredits, customRateVal, user.id]
+    );
+
+    // Record adjustment in transactions
+    await db.query(
+      `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, balance_after, description, payment_method, status, created_at)
+       VALUES (?, 'ADMIN_ADJUST', ?, ?, ?, ?, 'admin', 'COMPLETED', NOW())`,
+      [user.id, adjustBdt, adjustCredits, currentBalance, note || `Admin Adjustment: ${action || 'UPDATE'}`]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `User ${user.name} SMS account updated successfully.`,
+      user: {
+        id: user.id,
+        sms_balance: currentBalance,
+        sms_credits: currentCredits,
+        custom_sms_rate: customRateVal
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 6. SMS Transactions (Top-ups & Package Purchases Approval)
+router.get('/sms/transactions', adminAuth, async (req, res) => {
+  try {
+    const { status, limit = 100 } = req.query;
+    let sql = `
+      SELECT t.*, u.name as user_name, u.email as user_email 
+      FROM sms_transactions t
+      JOIN users u ON t.user_id = u.id
+    `;
+    const params = [];
+    if (status && status !== 'all') {
+      sql += ' WHERE t.status = ?';
+      params.push(status);
+    }
+    sql += ' ORDER BY t.id DESC LIMIT ?';
+    params.push(parseInt(limit));
+
+    const transactions = await db.query(sql, params);
+    return res.status(200).json({ success: true, transactions });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/transactions/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const tx = await db.getOne('SELECT * FROM sms_transactions WHERE id = ?', [req.params.id]);
+    if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found.' });
+    if (tx.status === 'COMPLETED') return res.status(400).json({ success: false, message: 'Transaction is already completed.' });
+
+    const user = await db.getOne('SELECT id, sms_balance, sms_credits FROM users WHERE id = ?', [tx.user_id]);
+    let newBalance = parseFloat(user.sms_balance || 0);
+    let newCredits = parseInt(user.sms_credits || 0, 10);
+
+    if (tx.type === 'TOPUP_RECHARGE') {
+      newBalance += parseFloat(tx.amount_bdt);
+    } else if (tx.type === 'PACKAGE_PURCHASE') {
+      newCredits += parseInt(tx.sms_count, 10);
+    }
+
+    await db.query('UPDATE users SET sms_balance = ?, sms_credits = ? WHERE id = ?', [newBalance, newCredits, user.id]);
+    await db.query('UPDATE sms_transactions SET status = "COMPLETED", balance_after = ? WHERE id = ?', [newBalance, tx.id]);
+
+    return res.status(200).json({
+      success: true,
+      message: `Transaction #${tx.id} approved. User credited successfully.`,
+      updatedBalance: newBalance,
+      updatedCredits: newCredits
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/transactions/:id/reject', adminAuth, async (req, res) => {
+  try {
+    await db.query('UPDATE sms_transactions SET status = "REJECTED" WHERE id = ?', [req.params.id]);
+    return res.status(200).json({ success: true, message: `Transaction #${req.params.id} marked as rejected.` });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

@@ -601,11 +601,9 @@
               <option value="qr">QR Device (Baileys WhatsApp)</option>
             </optgroup>
             <optgroup label="SMS Gateways">
-              <option value="sms_android_sim1">Android Mobile Gateway (SIM 1)</option>
-              <option value="sms_android_sim2">Android Mobile Gateway (SIM 2)</option>
-              <option value="sms_greenweb">Greenweb BD (SMS Aggregator)</option>
-              <option value="sms_bulksmsbd">BulkSMSBD (SMS Aggregator)</option>
-              <option value="sms_custom_http">Custom HTTP Gateway (SMS API)</option>
+              <option value="sms_cloud">Platform Cloud SMS Gateway (৳0.35 / SMS)</option>
+              <option value="sms_android_sim1">My Android Phone (SIM 1 - Free)</option>
+              <option value="sms_android_sim2">My Android Phone (SIM 2 - Free)</option>
             </optgroup>
           </select>
         </div>

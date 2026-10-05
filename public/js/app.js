@@ -14,7 +14,9 @@ const state = {
   smsDevices: [],
   smsGateways: {},
   smsLogs: [],
-  activeSmsSubTab: 'devices',
+  smsWallet: null,
+  smsPackages: [],
+  activeSmsSubTab: 'send',
   metaConfig: {},
   settings: {},
   qrData: null,
@@ -1376,10 +1378,28 @@ function renderDevicesTab(container) {
 }
 
 /**
- * TAB: SMS GATEWAY (ANDROID DUAL-SIM & THIRD-PARTY AGGREGATORS)
+ * TAB: SMS GATEWAY (PAY-AS-YOU-GO PLATFORM GATEWAY & ANDROID DUAL-SIM)
  */
 async function renderSmsGatewayTab(container) {
-  const activeSubTab = state.activeSmsSubTab || 'devices';
+  const activeSubTab = state.activeSmsSubTab || 'send';
+
+  // Fetch wallet & devices info
+  try {
+    const token = localStorage.getItem('un_token');
+    const [walletRes, devicesRes] = await Promise.all([
+      fetch('/api/v1/sms/wallet', { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch('/api/v1/sms/devices', { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+    const walletJson = await walletRes.json();
+    const devicesJson = await devicesRes.json();
+    if (walletJson.success) state.smsWallet = walletJson.data;
+    if (devicesJson.success) state.smsDevices = devicesJson.data || [];
+  } catch (e) {
+    console.error('Failed to load SMS wallet/devices state:', e);
+  }
+
+  const wallet = state.smsWallet || { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35, min_recharge: 50 };
+  const deviceCount = (state.smsDevices || []).length;
 
   container.innerHTML = `
     <!-- Top Stats / Sub Navigation Strip -->
@@ -1388,38 +1408,103 @@ async function renderSmsGatewayTab(container) {
         <div>
           <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <i data-lucide="radio" class="w-5 h-5 text-emerald-600"></i>
-            <span>SMS Gateway &amp; Dual-SIM Dispatcher</span>
+            <span>SMS Gateway &amp; Prepaid Wallet</span>
           </h2>
           <p class="text-xs text-slate-500 mt-0.5">
-            Turn your Android phone into an automated SMS server with SIM 1 / SIM 2 selection or connect third-party SMS aggregators.
+            Send SMS via Platform Cloud Gateway (৳${wallet.rate_per_sms.toFixed(2)}/SMS) or link your Android phone for free cellular SIM 1 / 2 dispatch.
           </p>
         </div>
 
         <div class="flex items-center gap-2">
-          <button onclick="openPairAndroidModal()" class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5">
-            <i data-lucide="plus-circle" class="w-4 h-4"></i>
-            <span>Pair Android Device</span>
+          <button onclick="openPairAndroidModal()" class="px-3.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-2xs transition flex items-center gap-1.5">
+            <i data-lucide="smartphone" class="w-4 h-4 text-emerald-600"></i>
+            <span>Pair Android Phone</span>
           </button>
+          <button onclick="openSmsRechargeModal()" class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5">
+            <i data-lucide="credit-card" class="w-4 h-4"></i>
+            <span>Recharge Balance</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Top KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1: SMS Cash Balance -->
+        <div class="saas-card p-4 border-t-2 border-emerald-600 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">SMS Cash Balance</span>
+            <div class="w-7 h-7 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">৳</div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="sms-kpi-balance" class="text-2xl font-black text-slate-900">৳${parseFloat(wallet.sms_balance || 0).toFixed(2)}</span>
+            <button onclick="openSmsRechargeModal()" class="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold">Top Up</button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Min Recharge ৳${parseFloat(wallet.min_recharge || 50).toFixed(0)} | Pay As You Go</p>
+        </div>
+
+        <!-- Card 2: Bundle SMS Credits -->
+        <div class="saas-card p-4 border-t-2 border-blue-600 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Bundle Credits</span>
+            <div class="w-7 h-7 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="zap" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="sms-kpi-credits" class="text-2xl font-black text-slate-900">${parseInt(wallet.sms_credits || 0, 10).toLocaleString()} <span class="text-xs font-semibold text-slate-500">SMS</span></span>
+            <button onclick="setSmsSubTab('wallet')" class="text-[11px] text-blue-700 hover:text-blue-800 font-semibold">Buy Bundle</button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Prepaid allowance priority</p>
+        </div>
+
+        <!-- Card 3: Platform SMS Rate -->
+        <div class="saas-card p-4 border-t-2 border-purple-600 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Cloud SMS Rate</span>
+            <div class="w-7 h-7 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center">
+              <i data-lucide="tag" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-2">
+            <span class="text-2xl font-black text-slate-900">৳${parseFloat(wallet.rate_per_sms || 0.35).toFixed(2)}</span>
+            <span class="text-xs font-semibold text-slate-500">/ SMS part</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">160 GSM / 70 Unicode chars</p>
+        </div>
+
+        <!-- Card 4: Android Phone Nodes -->
+        <div class="saas-card p-4 border-t-2 border-slate-700 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Android Devices</span>
+            <div class="w-7 h-7 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center">
+              <i data-lucide="smartphone" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span class="text-2xl font-black text-slate-900">${deviceCount} <span class="text-xs font-semibold text-slate-500">Linked</span></span>
+            <button onclick="setSmsSubTab('devices')" class="text-[11px] text-slate-700 hover:text-slate-900 font-semibold">Manage</button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">SIM 1 &amp; SIM 2 Free Dispatch</p>
         </div>
       </div>
 
       <!-- Sub Navigation Tabs -->
       <div class="flex flex-wrap gap-2 border-b border-slate-200 text-xs font-semibold">
-        <button onclick="setSmsSubTab('devices')" id="sms-subtab-btn-devices" class="pb-3 px-3 border-b-2 ${activeSubTab === 'devices' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'} flex items-center gap-1.5">
-          <i data-lucide="smartphone" class="w-4 h-4"></i>
-          <span>Android Mobile Nodes (SIM 1 / 2)</span>
-        </button>
         <button onclick="setSmsSubTab('send')" id="sms-subtab-btn-send" class="pb-3 px-3 border-b-2 ${activeSubTab === 'send' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'} flex items-center gap-1.5">
           <i data-lucide="send" class="w-4 h-4"></i>
           <span>Direct SMS Dispatcher</span>
         </button>
+        <button onclick="setSmsSubTab('wallet')" id="sms-subtab-btn-wallet" class="pb-3 px-3 border-b-2 ${activeSubTab === 'wallet' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'} flex items-center gap-1.5">
+          <i data-lucide="wallet" class="w-4 h-4"></i>
+          <span>SMS Wallet &amp; Packages</span>
+        </button>
+        <button onclick="setSmsSubTab('devices')" id="sms-subtab-btn-devices" class="pb-3 px-3 border-b-2 ${activeSubTab === 'devices' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'} flex items-center gap-1.5">
+          <i data-lucide="smartphone" class="w-4 h-4"></i>
+          <span>Android Mobile Nodes (${deviceCount})</span>
+        </button>
         <button onclick="setSmsSubTab('broadcast')" id="sms-subtab-btn-broadcast" class="pb-3 px-3 border-b-2 ${activeSubTab === 'broadcast' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'} flex items-center gap-1.5">
           <i data-lucide="megaphone" class="w-4 h-4"></i>
           <span>SMS Broadcast Campaign</span>
-        </button>
-        <button onclick="setSmsSubTab('third_party')" id="sms-subtab-btn-third_party" class="pb-3 px-3 border-b-2 ${activeSubTab === 'third_party' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'} flex items-center gap-1.5">
-          <i data-lucide="server" class="w-4 h-4"></i>
-          <span>3rd-Party SMS Providers</span>
         </button>
         <button onclick="setSmsSubTab('logs')" id="sms-subtab-btn-logs" class="pb-3 px-3 border-b-2 ${activeSubTab === 'logs' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'} flex items-center gap-1.5">
           <i data-lucide="list-filter" class="w-4 h-4"></i>
@@ -1490,6 +1575,73 @@ async function renderSmsGatewayTab(container) {
         </div>
       </div>
     </div>
+
+    <!-- Recharge Balance Modal -->
+    <div id="modal-sms-recharge" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-slide-up">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">৳</div>
+            <div>
+              <h3 class="font-bold text-sm text-slate-900">Top-Up SMS Balance</h3>
+              <p class="text-xs text-slate-500">Instant credit upon TrxID verification</p>
+            </div>
+          </div>
+          <button onclick="closeSmsRechargeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <form id="form-sms-modal-recharge" onsubmit="handleModalSmsRechargeSubmit(event)" class="p-6 space-y-4 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Recharge Amount (BDT)</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2.5 text-slate-400 font-bold">৳</span>
+              <input type="number" id="sms-modal-recharge-amount" min="${wallet.min_recharge || 50}" step="10" value="100" required class="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-3 py-2.5 text-slate-900 font-bold text-base focus:border-emerald-600 focus:outline-none">
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Minimum recharge amount is ৳${parseFloat(wallet.min_recharge || 50).toFixed(0)}.</p>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Select Payment Method</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+                <input type="radio" name="sms_modal_pay_method" value="bkash" checked onchange="updateSmsModalPayInfo('bkash')" class="mb-1 text-emerald-600">
+                <span class="font-bold text-xs text-slate-800">bKash</span>
+              </label>
+              <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+                <input type="radio" name="sms_modal_pay_method" value="nagad" onchange="updateSmsModalPayInfo('nagad')" class="mb-1 text-emerald-600">
+                <span class="font-bold text-xs text-slate-800">Nagad</span>
+              </label>
+              <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+                <input type="radio" name="sms_modal_pay_method" value="rocket" onchange="updateSmsModalPayInfo('rocket')" class="mb-1 text-emerald-600">
+                <span class="font-bold text-xs text-slate-800">Rocket</span>
+              </label>
+            </div>
+          </div>
+
+          <div id="sms-modal-pay-box" class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 leading-relaxed text-[11px]">
+            Send Money / Payment to bKash Number: <strong class="font-mono text-slate-900 font-bold" id="sms-modal-pay-number">${wallet.payment_methods?.bkash || '01700000000'}</strong>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Sender Mobile</label>
+              <input type="text" id="sms-modal-sender-phone" required placeholder="017xxxxxxxx" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-emerald-600 focus:outline-none">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Transaction ID (TrxID)</label>
+              <input type="text" id="sms-modal-trx-id" required placeholder="e.g. 9B8C7A6D5E" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono uppercase focus:border-emerald-600 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+            <button type="button" onclick="closeSmsRechargeModal()" class="px-3.5 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold">Cancel</button>
+            <button type="submit" id="btn-sms-modal-recharge-submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs">Submit Top-Up</button>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 
   await setSmsSubTab(activeSubTab);
@@ -1509,19 +1661,81 @@ async function setSmsSubTab(subTab) {
     activeBtn.className = 'pb-3 px-3 border-b-2 border-emerald-600 text-emerald-700 flex items-center gap-1.5';
   }
 
-  if (subTab === 'devices') {
-    await renderSmsDevicesSubTab(container);
-  } else if (subTab === 'send') {
+  if (subTab === 'send') {
     renderSmsDirectSubTab(container);
+  } else if (subTab === 'wallet') {
+    await renderSmsWalletSubTab(container);
+  } else if (subTab === 'devices') {
+    await renderSmsDevicesSubTab(container);
   } else if (subTab === 'broadcast') {
     renderSmsBroadcastSubTab(container);
-  } else if (subTab === 'third_party') {
-    await renderSmsSettingsSubTab(container);
   } else if (subTab === 'logs') {
     await renderSmsLogsSubTab(container);
   }
 
   lucide.createIcons();
+}
+
+function openSmsRechargeModal() {
+  const modal = document.getElementById('modal-sms-recharge');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeSmsRechargeModal() {
+  const modal = document.getElementById('modal-sms-recharge');
+  if (modal) modal.classList.add('hidden');
+}
+
+function updateSmsModalPayInfo(method) {
+  const box = document.getElementById('sms-modal-pay-box');
+  if (!box) return;
+  const pm = state.smsWallet?.payment_methods || {};
+  const num = pm[method] || '01700000000';
+  box.innerHTML = `Send Money / Payment to ${method.toUpperCase()} Number: <strong class="font-mono text-slate-900 font-bold">${num}</strong>. Submit your TrxID below.`;
+}
+
+async function handleModalSmsRechargeSubmit(e) {
+  e.preventDefault();
+  const amount = document.getElementById('sms-modal-recharge-amount').value;
+  const method = document.querySelector('input[name="sms_modal_pay_method"]:checked')?.value || 'bkash';
+  const senderPhone = document.getElementById('sms-modal-sender-phone').value.trim();
+  const trxId = document.getElementById('sms-modal-trx-id').value.trim();
+
+  const btn = document.getElementById('btn-sms-modal-recharge-submit');
+  btn.disabled = true;
+  btn.innerText = 'Submitting...';
+
+  try {
+    const token = localStorage.getItem('un_token');
+    const res = await fetch('/api/v1/sms/wallet/recharge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        amount_bdt: amount,
+        payment_method: method,
+        sender_number: senderPhone,
+        transaction_id: trxId
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(json.message, 'success');
+      closeSmsRechargeModal();
+      document.getElementById('form-sms-modal-recharge').reset();
+      // Reload SMS Gateway Tab
+      renderSmsGatewayTab(document.getElementById('tab-content'));
+    } else {
+      showToast(json.message || 'Recharge failed', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Submit Top-Up';
+  }
 }
 
 /**
@@ -1739,11 +1953,33 @@ async function handleDeleteSmsDevice(deviceId) {
  * SUB-TAB 2: DIRECT SMS SENDER
  */
 function renderSmsDirectSubTab(container) {
+  const wallet = state.smsWallet || { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35 };
+  const devices = state.smsDevices || [];
+  const rate = parseFloat(wallet.rate_per_sms || 0.35);
+
+  let deviceOptions = '';
+  if (devices.length > 0) {
+    deviceOptions = `
+      <optgroup label="My Android Phone SIMs (Free Dispatch)">
+        ${devices.map(dev => `
+          <option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 1 (${escapeHtml(dev.sim1_operator || 'Ready')}) [Free]</option>
+          <option value="android_sim_${dev.id}_2" ${dev.default_sim_slot === 2 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 2 (${escapeHtml(dev.sim2_operator || 'Ready')}) [Free]</option>
+        `).join('')}
+      </optgroup>
+    `;
+  }
+
   container.innerHTML = `
     <div class="max-w-2xl mx-auto saas-card p-6 space-y-5">
-      <div class="border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-sm text-slate-900">Direct Single SMS Dispatcher</h3>
-        <p class="text-xs text-slate-500 mt-0.5">Send a real-time cellular SMS via connected Android phone (SIM 1/2) or 3rd-party aggregators.</p>
+      <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-sm text-slate-900">Direct Single SMS Dispatcher</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Send a real-time cellular SMS via Platform Cloud Gateway or your Android SIM.</p>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Wallet Balance</span>
+          <span class="text-xs font-bold text-emerald-700">৳${parseFloat(wallet.sms_balance || 0).toFixed(2)} (${wallet.sms_credits || 0} Credits)</span>
+        </div>
       </div>
 
       <form id="direct-sms-form" onsubmit="handleDirectSmsSubmit(event)" class="space-y-4 text-xs">
@@ -1754,25 +1990,20 @@ function renderSmsDirectSubTab(container) {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">SMS Gateway Channel</label>
-            <select id="direct-sms-gateway" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 focus:border-emerald-600 focus:outline-none">
-              <optgroup label="Android Mobile Phone">
-                <option value="android_sim_1">Android Phone - SIM Slot 1</option>
-                <option value="android_sim_2">Android Phone - SIM Slot 2</option>
+            <label class="block font-semibold text-slate-700 mb-1">SMS Dispatch Route</label>
+            <select id="direct-sms-gateway" onchange="updateSmsCharCounter()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 focus:border-emerald-600 focus:outline-none">
+              <optgroup label="Platform Gateway (Pay As You Go)">
+                <option value="cloud_gateway" selected>Platform Cloud SMS Gateway (৳${rate.toFixed(2)} / SMS)</option>
               </optgroup>
-              <optgroup label="Third-Party Aggregators">
-                <option value="greenweb">Greenweb BD API</option>
-                <option value="bulksmsbd">BulkSMSBD API</option>
-                <option value="custom_http">Custom HTTP Webhook API</option>
-              </optgroup>
+              ${deviceOptions}
             </select>
           </div>
 
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Encoding / Character Set</label>
+            <label class="block font-semibold text-slate-700 mb-1">Encoding &amp; Cost Estimation</label>
             <div id="direct-sms-encoding-badge" class="px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 font-mono text-[11px] flex items-center justify-between">
-              <span>GSM 7-bit (Standard)</span>
-              <span class="text-emerald-700 font-bold">160 Chars/SMS</span>
+              <span>GSM 7-bit</span>
+              <span class="text-emerald-700 font-bold">160 Chars | ৳${rate.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -1783,6 +2014,15 @@ function renderSmsDirectSubTab(container) {
             <span id="direct-sms-char-counter" class="text-[11px] font-mono text-slate-500">0 / 160 characters (1 SMS part)</span>
           </div>
           <textarea id="direct-sms-message" rows="4" required oninput="updateSmsCharCounter()" placeholder="Write your SMS text message here..." class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-emerald-600 focus:outline-none"></textarea>
+        </div>
+
+        <div id="direct-sms-cost-preview" class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2 text-slate-600">
+            <i data-lucide="calculator" class="w-4 h-4 text-emerald-600"></i>
+            <span>Estimated Billing:</span>
+            <strong id="sms-cost-text" class="text-emerald-700 font-bold">৳${rate.toFixed(2)} BDT (1 SMS part)</strong>
+          </div>
+          <span class="text-[11px] text-slate-400 font-mono" id="sms-cost-channel-text">Platform Cloud Gateway</span>
         </div>
 
         <button type="submit" id="btn-direct-sms-submit" class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs transition flex items-center justify-center gap-2">
@@ -1798,27 +2038,43 @@ function updateSmsCharCounter() {
   const textarea = document.getElementById('direct-sms-message');
   const counter = document.getElementById('direct-sms-char-counter');
   const badge = document.getElementById('direct-sms-encoding-badge');
+  const gatewaySelect = document.getElementById('direct-sms-gateway');
+  const costText = document.getElementById('sms-cost-text');
+  const channelText = document.getElementById('sms-cost-channel-text');
   if (!textarea || !counter) return;
 
   const text = textarea.value;
-  // Check if text contains non-GSM characters (like Bengali unicode)
   const isUnicode = /[^\u0000-\u007F]/.test(text);
+  const rate = parseFloat(state.smsWallet?.rate_per_sms || 0.35);
+  const isCloud = !gatewaySelect || gatewaySelect.value === 'cloud_gateway';
 
+  let parts = 1;
   if (isUnicode) {
     const limit = text.length <= 70 ? 70 : 67;
-    const parts = text.length === 0 ? 1 : Math.ceil(text.length / limit);
-    counter.innerText = `${text.length} chars (Unicode UTF-16) - ${parts} SMS part(s)`;
+    parts = text.length === 0 ? 1 : Math.ceil(text.length / limit);
+    counter.innerText = `${text.length} chars (Unicode) - ${parts} SMS part(s)`;
     counter.className = 'text-[11px] font-mono text-blue-700 font-semibold';
     if (badge) {
-      badge.innerHTML = `<span>Unicode UTF-16 (Bangla)</span><span class="text-blue-700 font-bold">70 Chars/SMS</span>`;
+      badge.innerHTML = `<span>Unicode UTF-16</span><span class="text-blue-700 font-bold">70 Chars/Part</span>`;
     }
   } else {
     const limit = text.length <= 160 ? 160 : 153;
-    const parts = text.length === 0 ? 1 : Math.ceil(text.length / limit);
-    counter.innerText = `${text.length} / 160 characters - ${parts} SMS part(s)`;
+    parts = text.length === 0 ? 1 : Math.ceil(text.length / limit);
+    counter.innerText = `${text.length} / 160 chars - ${parts} SMS part(s)`;
     counter.className = 'text-[11px] font-mono text-slate-500';
     if (badge) {
-      badge.innerHTML = `<span>GSM 7-bit (Standard)</span><span class="text-emerald-700 font-bold">160 Chars/SMS</span>`;
+      badge.innerHTML = `<span>GSM 7-bit</span><span class="text-emerald-700 font-bold">160 Chars/Part</span>`;
+    }
+  }
+
+  if (costText) {
+    if (isCloud) {
+      const totalCost = (parts * rate).toFixed(2);
+      costText.innerText = `৳${totalCost} BDT (${parts} SMS part${parts > 1 ? 's' : ''})`;
+      if (channelText) channelText.innerText = 'Debited from SMS Wallet';
+    } else {
+      costText.innerText = `৳0.00 Free (${parts} part${parts > 1 ? 's' : ''})`;
+      if (channelText) channelText.innerText = 'Sent via Android Cellular SIM';
     }
   }
 }
@@ -1830,16 +2086,16 @@ async function handleDirectSmsSubmit(e) {
   const message = document.getElementById('direct-sms-message').value.trim();
 
   let simSlot = 1;
-  let gatewayType = 'android_sim';
+  let gatewayType = 'cloud_gateway';
+  let deviceId = null;
 
-  if (gatewayVal === 'android_sim_1') {
-    simSlot = 1;
-    gatewayType = 'android_sim';
-  } else if (gatewayVal === 'android_sim_2') {
-    simSlot = 2;
+  if (gatewayVal.startsWith('android_sim_')) {
+    const parts = gatewayVal.replace('android_sim_', '').split('_');
+    deviceId = parts[0];
+    simSlot = parseInt(parts[1] || '1', 10);
     gatewayType = 'android_sim';
   } else {
-    gatewayType = gatewayVal;
+    gatewayType = 'cloud_gateway';
   }
 
   const btn = document.getElementById('btn-direct-sms-submit');
@@ -1858,7 +2114,8 @@ async function handleDirectSmsSubmit(e) {
         recipient,
         message,
         gateway_type: gatewayType,
-        sim_slot: simSlot
+        sim_slot: simSlot,
+        device_id: deviceId
       })
     });
     const json = await res.json();
@@ -1866,7 +2123,18 @@ async function handleDirectSmsSubmit(e) {
       showToast(`SMS queued successfully (ID #${json.data?.job_id || ''})`, 'success');
       document.getElementById('direct-sms-form').reset();
       updateSmsCharCounter();
-      // Switch to logs subtab after short delay
+      // Reload wallet balance in background
+      try {
+        const wRes = await fetch('/api/v1/sms/wallet', { headers: { 'Authorization': `Bearer ${token}` } });
+        const wJson = await wRes.json();
+        if (wJson.success) {
+          state.smsWallet = wJson.data;
+          const kpiBal = document.getElementById('sms-kpi-balance');
+          const kpiCred = document.getElementById('sms-kpi-credits');
+          if (kpiBal) kpiBal.innerText = `৳${parseFloat(wJson.data.sms_balance || 0).toFixed(2)}`;
+          if (kpiCred) kpiCred.innerText = `${parseInt(wJson.data.sms_credits || 0, 10).toLocaleString()} SMS`;
+        }
+      } catch {}
       setTimeout(() => setSmsSubTab('logs'), 1000);
     } else {
       showToast(json.message || 'Failed to dispatch SMS', 'error');
@@ -1884,11 +2152,27 @@ async function handleDirectSmsSubmit(e) {
  * SUB-TAB 3: SMS BROADCAST CAMPAIGN
  */
 function renderSmsBroadcastSubTab(container) {
+  const wallet = state.smsWallet || { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35 };
+  const devices = state.smsDevices || [];
+  const rate = parseFloat(wallet.rate_per_sms || 0.35);
+
+  let deviceOptions = '';
+  if (devices.length > 0) {
+    deviceOptions = `
+      <optgroup label="My Android Phone SIMs (Free)">
+        ${devices.map(dev => `
+          <option value="android_sim_${dev.id}_1">${escapeHtml(dev.device_name)} - SIM 1 (${escapeHtml(dev.sim1_operator || 'SIM')}) [Free]</option>
+          <option value="android_sim_${dev.id}_2">${escapeHtml(dev.device_name)} - SIM 2 (${escapeHtml(dev.sim2_operator || 'SIM')}) [Free]</option>
+        `).join('')}
+      </optgroup>
+    `;
+  }
+
   container.innerHTML = `
     <div class="max-w-2xl mx-auto saas-card p-6 space-y-5">
       <div class="border-b border-slate-100 pb-3">
         <h3 class="font-bold text-sm text-slate-900">Create SMS Bulk Campaign</h3>
-        <p class="text-xs text-slate-500 mt-0.5">Send promotional or notification SMS to multiple contacts with safe randomized delay.</p>
+        <p class="text-xs text-slate-500 mt-0.5">Send promotional or notification SMS to multiple contacts with safe randomized throttling.</p>
       </div>
 
       <form id="sms-broadcast-form" onsubmit="handleSmsBroadcastSubmit(event)" class="space-y-4 text-xs">
@@ -1898,13 +2182,12 @@ function renderSmsBroadcastSubTab(container) {
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Sending Channel</label>
+          <label class="block font-semibold text-slate-700 mb-1">Sending Route</label>
           <select id="sms-camp-gateway" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 focus:border-emerald-600 focus:outline-none">
-            <option value="android_sim_1">Android Phone - SIM Slot 1</option>
-            <option value="android_sim_2">Android Phone - SIM Slot 2</option>
-            <option value="greenweb">Greenweb BD API</option>
-            <option value="bulksmsbd">BulkSMSBD API</option>
-            <option value="custom_http">Custom HTTP Webhook</option>
+            <optgroup label="Platform Gateway">
+              <option value="cloud_gateway" selected>Platform Cloud SMS Gateway (৳${rate.toFixed(2)} / SMS)</option>
+            </optgroup>
+            ${deviceOptions}
           </select>
         </div>
 
@@ -1949,15 +2232,16 @@ async function handleSmsBroadcastSubmit(e) {
   }
 
   let simSlot = 1;
-  let gatewayType = 'android_sim';
-  if (gatewayVal === 'android_sim_1') {
-    simSlot = 1;
-    gatewayType = 'android_sim';
-  } else if (gatewayVal === 'android_sim_2') {
-    simSlot = 2;
+  let gatewayType = 'cloud_gateway';
+  let deviceId = null;
+
+  if (gatewayVal.startsWith('android_sim_')) {
+    const parts = gatewayVal.replace('android_sim_', '').split('_');
+    deviceId = parts[0];
+    simSlot = parseInt(parts[1] || '1', 10);
     gatewayType = 'android_sim';
   } else {
-    gatewayType = gatewayVal;
+    gatewayType = 'cloud_gateway';
   }
 
   const btn = document.getElementById('btn-sms-broadcast-submit');
@@ -1977,7 +2261,8 @@ async function handleSmsBroadcastSubmit(e) {
         recipients,
         message,
         gateway_type: gatewayType,
-        sim_slot: simSlot
+        sim_slot: simSlot,
+        device_id: deviceId
       })
     });
     const json = await res.json();
@@ -1998,202 +2283,412 @@ async function handleSmsBroadcastSubmit(e) {
 }
 
 /**
- * SUB-TAB 4: 3RD-PARTY GATEWAY SETTINGS
+ * SUB-TAB 4: SMS WALLET & PACKAGES
  */
-async function renderSmsSettingsSubTab(container) {
-  container.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Loading gateway settings...</div>`;
+async function renderSmsWalletSubTab(container) {
+  container.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Loading wallet &amp; SMS packages...</div>`;
 
   try {
     const token = localStorage.getItem('un_token');
-    const res = await fetch('/api/v1/sms/settings/third-party', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const json = await res.json();
-    const gws = json.data || {};
-    const greenweb = gws.greenweb || {};
-    const bulksmsbd = gws.bulksmsbd || {};
-    const customHttp = gws.custom_http || {};
+    const [wRes, pRes] = await Promise.all([
+      fetch('/api/v1/sms/wallet', { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch('/api/v1/sms/packages', { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+    const wJson = await wRes.json();
+    const pJson = await pRes.json();
+
+    const wallet = wJson.success ? wJson.data : { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35, min_recharge: 50 };
+    const packages = pJson.success ? pJson.data : [];
+    state.smsWallet = wallet;
+    state.smsPackages = packages;
+
+    const txs = wallet.recent_transactions || [];
 
     container.innerHTML = `
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Greenweb BD -->
-        <div class="saas-card p-5 space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">GW</div>
-              <div>
-                <h4 class="font-bold text-sm text-slate-900">Greenweb BD</h4>
-                <p class="text-[11px] text-slate-500">Bangladeshi SMS Gateway</p>
+      <div class="space-y-6">
+        <!-- Top Row: Top-up Form & Wallet Info -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Wallet Balance & Direct Recharge Box -->
+          <div class="saas-card p-5 space-y-4 lg:col-span-1">
+            <div class="border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <i data-lucide="wallet" class="w-4 h-4 text-emerald-600"></i>
+                <span>Prepaid SMS Recharge</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Top-up your balance for Pay-As-You-Go Cloud SMS.</p>
+            </div>
+
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="text-slate-500">Available Balance:</span>
+                <span class="font-bold text-emerald-700 font-mono text-sm">৳${parseFloat(wallet.sms_balance || 0).toFixed(2)}</span>
+              </div>
+              <div class="flex justify-between items-center text-xs">
+                <span class="text-slate-500">Bundle Credits:</span>
+                <span class="font-bold text-blue-700 font-mono text-sm">${parseInt(wallet.sms_credits || 0, 10).toLocaleString()} SMS</span>
+              </div>
+              <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-200">
+                <span class="text-slate-500">Cloud SMS Rate:</span>
+                <span class="font-semibold text-slate-800 font-mono">৳${parseFloat(wallet.rate_per_sms || 0.35).toFixed(2)} / SMS</span>
               </div>
             </div>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${greenweb.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
-              ${greenweb.is_active ? 'Active' : 'Disabled'}
-            </span>
+
+            <form id="form-direct-sms-recharge" onsubmit="handleDirectRechargeSubmit(event)" class="space-y-3 text-xs">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Recharge Amount (BDT)</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2 text-slate-400 font-bold">৳</span>
+                  <input type="number" id="recharge-bdt-amount" min="${wallet.min_recharge || 50}" step="10" value="100" required class="w-full bg-white border border-slate-300 rounded-lg pl-7 pr-3 py-2 text-slate-900 font-bold focus:border-emerald-600 focus:outline-none">
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Payment Method</label>
+                <select id="recharge-bdt-method" onchange="updateDirectRechargeInfo(this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:border-emerald-600 focus:outline-none">
+                  <option value="bkash">bKash (Send Money / Merchant)</option>
+                  <option value="nagad">Nagad Payment</option>
+                  <option value="rocket">Rocket DBBL</option>
+                </select>
+              </div>
+
+              <div id="direct-recharge-info-box" class="p-2.5 bg-emerald-50/50 border border-emerald-200 rounded-lg text-slate-700 text-[11px] leading-relaxed">
+                Send to bKash Number: <strong class="font-mono text-slate-900 font-bold" id="direct-recharge-number">${wallet.payment_methods?.bkash || '01700000000'}</strong>
+              </div>
+
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Sender Mobile Number</label>
+                <input type="text" id="recharge-sender-phone" required placeholder="017xxxxxxxx" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-emerald-600 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Transaction ID (TrxID)</label>
+                <input type="text" id="recharge-trx-id" required placeholder="e.g. 9B8C7A6D5E" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono uppercase focus:border-emerald-600 focus:outline-none">
+              </div>
+
+              <button type="submit" id="btn-recharge-submit" class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs">
+                Submit Top-Up Request
+              </button>
+            </form>
           </div>
 
-          <form id="form-gw-greenweb" onsubmit="handleSaveThirdPartySmsSettings(event, 'greenweb')" class="space-y-3 text-xs">
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">API Token</label>
-              <input type="password" id="gw-greenweb-token" value="${escapeHtml(greenweb.token || '')}" placeholder="Greenweb Token" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-emerald-600 focus:outline-none">
+          <!-- SMS Packages Grid -->
+          <div class="saas-card p-5 space-y-4 lg:col-span-2">
+            <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <i data-lucide="package" class="w-4 h-4 text-blue-600"></i>
+                  <span>Prepaid SMS Bundle Packages</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Discounted bulk bundles with guaranteed delivery priority.</p>
+              </div>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Instant Activation</span>
             </div>
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Sender ID / Masking (Optional)</label>
-              <input type="text" id="gw-greenweb-sender" value="${escapeHtml(greenweb.sender_id || '')}" placeholder="UniqueNotify" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:border-emerald-600 focus:outline-none">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              ${packages.map(pkg => {
+                const isPopular = pkg.price_bdt >= 300 && pkg.price_bdt <= 400;
+                return `
+                  <div class="p-4 rounded-xl border ${isPopular ? 'border-2 border-emerald-600 shadow-xs ring-1 ring-emerald-600/10' : 'border-slate-200'} bg-white flex flex-col justify-between space-y-3 relative">
+                    ${isPopular ? `
+                      <span class="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-bold tracking-wide uppercase shadow-2xs">Best Value</span>
+                    ` : ''}
+
+                    <div class="space-y-2">
+                      <h4 class="font-bold text-slate-900 text-sm">${escapeHtml(pkg.name)}</h4>
+                      <div class="flex items-baseline gap-1">
+                        <span class="text-2xl font-black text-slate-900">৳${pkg.price_bdt}</span>
+                        <span class="text-[10px] text-slate-400 font-medium">/ ${pkg.validity_days || 365} days</span>
+                      </div>
+                      <div class="text-xs font-semibold text-emerald-700">${pkg.sms_count.toLocaleString()} SMS Credits</div>
+                      <div class="text-[10px] text-slate-400 font-mono">৳${parseFloat(pkg.price_per_sms || 0.35).toFixed(2)} / SMS</div>
+
+                      <ul class="text-[11px] text-slate-600 space-y-1.5 pt-2 border-t border-slate-100">
+                        ${(pkg.features || []).map(f => `
+                          <li class="flex items-center gap-1.5"><i data-lucide="check" class="w-3 h-3 text-emerald-600 shrink-0"></i><span>${escapeHtml(f)}</span></li>
+                        `).join('')}
+                      </ul>
+                    </div>
+
+                    <div class="space-y-1.5 pt-2 border-t border-slate-100">
+                      <button onclick="handleBuyPackageWithWallet(${pkg.id}, '${escapeHtml(pkg.name)}', ${pkg.price_bdt}, ${pkg.sms_count})" class="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-2xs transition">
+                        Buy with Wallet
+                      </button>
+                      <button onclick="openBuyPackageManualModal(${pkg.id}, '${escapeHtml(pkg.name)}', ${pkg.price_bdt}, ${pkg.sms_count})" class="w-full py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-[11px] transition">
+                        Pay via bKash / Nagad
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
             </div>
-            <div class="flex items-center gap-2 pt-1">
-              <input type="checkbox" id="gw-greenweb-active" ${greenweb.is_active ? 'checked' : ''} class="rounded text-emerald-600">
-              <label for="gw-greenweb-active" class="text-slate-700 font-medium">Enable Greenweb BD Gateway</label>
-            </div>
-            <div class="pt-2 flex gap-2">
-              <button type="submit" class="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs">Save</button>
-              <button type="button" onclick="handleTestThirdPartySms('greenweb')" class="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold">Test</button>
-            </div>
-          </form>
+          </div>
         </div>
 
-        <!-- BulkSMSBD -->
-        <div class="saas-card p-5 space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">BS</div>
-              <div>
-                <h4 class="font-bold text-sm text-slate-900">BulkSMSBD</h4>
-                <p class="text-[11px] text-slate-500">Bulk SMS BD Aggregator</p>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${bulksmsbd.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
-              ${bulksmsbd.is_active ? 'Active' : 'Disabled'}
-            </span>
+        <!-- Transactions History Table -->
+        <div class="saas-card overflow-hidden space-y-3">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+              <i data-lucide="history" class="w-4 h-4 text-slate-500"></i>
+              <span>SMS Wallet &amp; Bundle Transactions</span>
+            </h4>
+            <span class="text-xs text-slate-400">${txs.length} Recent Records</span>
           </div>
 
-          <form id="form-gw-bulksmsbd" onsubmit="handleSaveThirdPartySmsSettings(event, 'bulksmsbd')" class="space-y-3 text-xs">
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">API Key</label>
-              <input type="password" id="gw-bulksmsbd-key" value="${escapeHtml(bulksmsbd.api_key || '')}" placeholder="BulkSMSBD API Key" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-blue-600 focus:outline-none">
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Sender ID</label>
-              <input type="text" id="gw-bulksmsbd-sender" value="${escapeHtml(bulksmsbd.sender_id || '')}" placeholder="8809600000000" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:border-blue-600 focus:outline-none">
-            </div>
-            <div class="flex items-center gap-2 pt-1">
-              <input type="checkbox" id="gw-bulksmsbd-active" ${bulksmsbd.is_active ? 'checked' : ''} class="rounded text-blue-600">
-              <label for="gw-bulksmsbd-active" class="text-slate-700 font-medium">Enable BulkSMSBD Gateway</label>
-            </div>
-            <div class="pt-2 flex gap-2">
-              <button type="submit" class="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs">Save</button>
-              <button type="button" onclick="handleTestThirdPartySms('bulksmsbd')" class="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold">Test</button>
-            </div>
-          </form>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold text-[11px] border-b border-slate-200/80">
+                <tr>
+                  <th class="py-2.5 px-4">Trx ID / Ref</th>
+                  <th class="py-2.5 px-4">Type</th>
+                  <th class="py-2.5 px-4">Amount / Credits</th>
+                  <th class="py-2.5 px-4">Balance After</th>
+                  <th class="py-2.5 px-4">Method / TrxID</th>
+                  <th class="py-2.5 px-4">Status</th>
+                  <th class="py-2.5 px-4">Date</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-medium">
+                ${txs.length > 0 ? txs.map(t => {
+                  const statusClass = t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    t.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    'bg-rose-50 text-rose-700 border-rose-200';
+
+                  const typeLabel = t.type === 'TOPUP_RECHARGE' ? 'Top-Up Recharge' :
+                    t.type === 'PACKAGE_PURCHASE' ? 'Package Purchase' :
+                    t.type === 'SMS_DEBIT' ? 'SMS Usage Debit' :
+                    t.type === 'REFUND' ? 'SMS Refund' : t.type;
+
+                  return `
+                    <tr class="hover:bg-slate-50/70">
+                      <td class="py-2.5 px-4 font-mono text-slate-400">#${t.id}</td>
+                      <td class="py-2.5 px-4 font-semibold text-slate-900">${typeLabel}</td>
+                      <td class="py-2.5 px-4 font-mono">
+                        ${t.amount_bdt > 0 ? `৳${parseFloat(t.amount_bdt).toFixed(2)}` : ''}
+                        ${t.sms_count > 0 ? `<span class="text-blue-700 font-bold ml-1">+${t.sms_count} SMS</span>` : ''}
+                      </td>
+                      <td class="py-2.5 px-4 font-mono text-slate-600">৳${parseFloat(t.balance_after || 0).toFixed(2)}</td>
+                      <td class="py-2.5 px-4 font-mono text-[11px] text-slate-600">
+                        ${t.payment_method ? t.payment_method.toUpperCase() : 'WALLET'}
+                        ${t.transaction_id ? `(${escapeHtml(t.transaction_id)})` : ''}
+                      </td>
+                      <td class="py-2.5 px-4">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${statusClass}">${t.status}</span>
+                      </td>
+                      <td class="py-2.5 px-4 text-slate-400 font-mono text-[11px]">${formatDate(t.created_at)}</td>
+                    </tr>
+                  `;
+                }).join('') : `
+                  <tr><td colspan="7" class="py-6 text-center text-slate-400">No transaction records found.</td></tr>
+                `}
+              </tbody>
+            </table>
+          </div>
         </div>
+      </div>
 
-        <!-- Custom HTTP Webhook -->
-        <div class="saas-card p-5 space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">API</div>
-              <div>
-                <h4 class="font-bold text-sm text-slate-900">Custom HTTP Webhook</h4>
-                <p class="text-[11px] text-slate-500">Any REST SMS Provider</p>
-              </div>
+      <!-- Manual Package Buy Modal -->
+      <div id="modal-buy-pkg-manual" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-slide-up">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-slate-900">Purchase SMS Bundle</h3>
+              <p id="modal-buy-pkg-title" class="text-xs text-emerald-700 font-semibold mt-0.5">Starter Package - ৳70</p>
             </div>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${customHttp.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
-              ${customHttp.is_active ? 'Active' : 'Disabled'}
-            </span>
+            <button onclick="closeBuyPackageManualModal()" class="text-slate-400 hover:text-slate-600 p-1">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
           </div>
 
-          <form id="form-gw-custom" onsubmit="handleSaveThirdPartySmsSettings(event, 'custom_http')" class="space-y-3 text-xs">
+          <form id="form-buy-pkg-manual" onsubmit="handleBuyPackageManualSubmit(event)" class="p-6 space-y-4 text-xs">
+            <input type="hidden" id="modal-buy-pkg-id" value="">
+
             <div>
-              <label class="block font-semibold text-slate-700 mb-1">API Endpoint URL Template</label>
-              <input type="text" id="gw-custom-url" value="${escapeHtml(customHttp.url || '')}" placeholder="https://api.gateway.com/send?to={to}&msg={message}" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono text-[11px] focus:border-purple-600 focus:outline-none">
-              <p class="text-[10px] text-slate-400 mt-1">Variables: <code class="font-mono text-slate-600">{to}</code>, <code class="font-mono text-slate-600">{message}</code>, <code class="font-mono text-slate-600">{api_key}</code></p>
+              <label class="block font-semibold text-slate-700 mb-1">Payment Method</label>
+              <select id="modal-buy-pkg-method" onchange="updatePkgManualInfo(this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:border-emerald-600 focus:outline-none">
+                <option value="bkash">bKash Personal / Merchant</option>
+                <option value="nagad">Nagad Payment</option>
+                <option value="rocket">Rocket DBBL</option>
+              </select>
             </div>
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">API Key / Secret</label>
-              <input type="password" id="gw-custom-key" value="${escapeHtml(customHttp.api_key || '')}" placeholder="Secret Key" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-purple-600 focus:outline-none">
+
+            <div id="modal-buy-pkg-info-box" class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 leading-relaxed text-[11px]">
+              Send exact package amount to bKash: <strong class="font-mono text-slate-900 font-bold" id="modal-buy-pkg-number">${wallet.payment_methods?.bkash || '01700000000'}</strong>
             </div>
-            <div class="flex items-center gap-2 pt-1">
-              <input type="checkbox" id="gw-custom-active" ${customHttp.is_active ? 'checked' : ''} class="rounded text-purple-600">
-              <label for="gw-custom-active" class="text-slate-700 font-medium">Enable Custom HTTP Gateway</label>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Sender Mobile</label>
+                <input type="text" id="modal-buy-pkg-sender" required placeholder="017xxxxxxxx" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-emerald-600 focus:outline-none">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Transaction ID (TrxID)</label>
+                <input type="text" id="modal-buy-pkg-trx" required placeholder="e.g. 9B8C7A6D5E" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono uppercase focus:border-emerald-600 focus:outline-none">
+              </div>
             </div>
-            <div class="pt-2 flex gap-2">
-              <button type="submit" class="flex-1 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-xs">Save</button>
-              <button type="button" onclick="handleTestThirdPartySms('custom_http')" class="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold">Test</button>
+
+            <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <button type="button" onclick="closeBuyPackageManualModal()" class="px-3.5 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold">Cancel</button>
+              <button type="submit" id="btn-buy-pkg-manual-submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs">Submit Purchase</button>
             </div>
           </form>
         </div>
       </div>
     `;
+
+    lucide.createIcons();
   } catch (e) {
-    container.innerHTML = `<div class="text-rose-600 text-xs py-4 text-center">Failed to load settings: ${e.message}</div>`;
+    container.innerHTML = `<div class="text-rose-600 text-xs py-4 text-center">Failed to load SMS wallet: ${e.message}</div>`;
   }
 }
 
-async function handleSaveThirdPartySmsSettings(e, provider) {
+function updateDirectRechargeInfo(method) {
+  const box = document.getElementById('direct-recharge-info-box');
+  const numSpan = document.getElementById('direct-recharge-number');
+  const pm = state.smsWallet?.payment_methods || {};
+  const num = pm[method] || '01700000000';
+  if (box && numSpan) {
+    box.innerHTML = `Send to ${method.toUpperCase()} Number: <strong class="font-mono text-slate-900 font-bold">${num}</strong>. Submit your TrxID below.`;
+  }
+}
+
+async function handleDirectRechargeSubmit(e) {
   e.preventDefault();
-  let payload = { provider_name: provider };
+  const amount = document.getElementById('recharge-bdt-amount').value;
+  const method = document.getElementById('recharge-bdt-method').value;
+  const sender = document.getElementById('recharge-sender-phone').value.trim();
+  const trx = document.getElementById('recharge-trx-id').value.trim();
 
-  if (provider === 'greenweb') {
-    payload.token = document.getElementById('gw-greenweb-token').value.trim();
-    payload.sender_id = document.getElementById('gw-greenweb-sender').value.trim();
-    payload.is_active = document.getElementById('gw-greenweb-active').checked;
-  } else if (provider === 'bulksmsbd') {
-    payload.api_key = document.getElementById('gw-bulksmsbd-key').value.trim();
-    payload.sender_id = document.getElementById('gw-bulksmsbd-sender').value.trim();
-    payload.is_active = document.getElementById('gw-bulksmsbd-active').checked;
-  } else if (provider === 'custom_http') {
-    payload.url = document.getElementById('gw-custom-url').value.trim();
-    payload.api_key = document.getElementById('gw-custom-key').value.trim();
-    payload.is_active = document.getElementById('gw-custom-active').checked;
-  }
+  const btn = document.getElementById('btn-recharge-submit');
+  btn.disabled = true;
+  btn.innerText = 'Submitting...';
 
   try {
     const token = localStorage.getItem('un_token');
-    const res = await fetch('/api/v1/sms/settings/third-party', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-    const json = await res.json();
-    if (json.success) {
-      showToast(`${provider.toUpperCase()} settings saved successfully`, 'success');
-      renderSmsSettingsSubTab(document.getElementById('sms-subtab-container'));
-    } else {
-      showToast(json.message || 'Failed to save settings', 'error');
-    }
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-
-async function handleTestThirdPartySms(provider) {
-  const phone = prompt('Enter recipient phone number for test SMS (e.g. 017xxxxxxxx):');
-  if (!phone) return;
-
-  try {
-    const token = localStorage.getItem('un_token');
-    const res = await fetch('/api/v1/sms/send', {
+    const res = await fetch('/api/v1/sms/wallet/recharge', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        recipient: phone,
-        message: `Unique-Notify test SMS via ${provider.toUpperCase()} gateway`,
-        gateway_type: provider
+        amount_bdt: amount,
+        payment_method: method,
+        sender_number: sender,
+        transaction_id: trx
       })
     });
     const json = await res.json();
     if (json.success) {
-      showToast(`Test SMS sent via ${provider}!`, 'success');
+      showToast(json.message, 'success');
+      document.getElementById('form-direct-sms-recharge').reset();
+      renderSmsGatewayTab(document.getElementById('tab-content'));
     } else {
-      showToast(json.message || 'Test SMS failed', 'error');
+      showToast(json.message || 'Recharge failed', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Submit Top-Up Request';
+  }
+}
+
+async function handleBuyPackageWithWallet(pkgId, pkgName, price, smsCount) {
+  const currentBalance = parseFloat(state.smsWallet?.sms_balance || 0);
+  if (currentBalance < price) {
+    showToast(`Insufficient balance (৳${currentBalance.toFixed(2)}). Please recharge at least ৳${(price - currentBalance).toFixed(2)} or pay via bKash.`, 'error');
+    return;
+  }
+
+  if (!confirm(`Confirm purchase of '${pkgName}' (${smsCount} SMS Credits) for ৳${price} from your SMS Wallet balance?`)) return;
+
+  try {
+    const token = localStorage.getItem('un_token');
+    const res = await fetch('/api/v1/sms/packages/purchase', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        package_id: pkgId,
+        payment_method: 'wallet'
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(json.message, 'success');
+      renderSmsGatewayTab(document.getElementById('tab-content'));
+    } else {
+      showToast(json.message || 'Purchase failed', 'error');
     }
   } catch (e) {
     showToast(e.message, 'error');
+  }
+}
+
+function openBuyPackageManualModal(pkgId, pkgName, price, smsCount) {
+  const modal = document.getElementById('modal-buy-pkg-manual');
+  if (!modal) return;
+  document.getElementById('modal-buy-pkg-id').value = pkgId;
+  document.getElementById('modal-buy-pkg-title').innerText = `${pkgName} - ৳${price} (${smsCount} SMS)`;
+  modal.classList.remove('hidden');
+}
+
+function closeBuyPackageManualModal() {
+  const modal = document.getElementById('modal-buy-pkg-manual');
+  if (modal) modal.classList.add('hidden');
+}
+
+function updatePkgManualInfo(method) {
+  const box = document.getElementById('modal-buy-pkg-info-box');
+  const pm = state.smsWallet?.payment_methods || {};
+  const num = pm[method] || '01700000000';
+  if (box) {
+    box.innerHTML = `Send exact package amount to ${method.toUpperCase()}: <strong class="font-mono text-slate-900 font-bold">${num}</strong>. Submit TrxID below.`;
+  }
+}
+
+async function handleBuyPackageManualSubmit(e) {
+  e.preventDefault();
+  const pkgId = document.getElementById('modal-buy-pkg-id').value;
+  const method = document.getElementById('modal-buy-pkg-method').value;
+  const sender = document.getElementById('modal-buy-pkg-sender').value.trim();
+  const trx = document.getElementById('modal-buy-pkg-trx').value.trim();
+
+  const btn = document.getElementById('btn-buy-pkg-manual-submit');
+  btn.disabled = true;
+  btn.innerText = 'Submitting...';
+
+  try {
+    const token = localStorage.getItem('un_token');
+    const res = await fetch('/api/v1/sms/packages/purchase', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        package_id: pkgId,
+        payment_method: method,
+        sender_number: sender,
+        transaction_id: trx
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(json.message, 'success');
+      closeBuyPackageManualModal();
+      document.getElementById('form-buy-pkg-manual').reset();
+      renderSmsGatewayTab(document.getElementById('tab-content'));
+    } else {
+      showToast(json.message || 'Submission failed', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Submit Purchase';
   }
 }
 
@@ -3437,19 +3932,15 @@ async function handleQuickSend(e) {
     let res;
     if (gateway.startsWith('sms_')) {
       let simSlot = 1;
-      let gwType = 'android_sim';
-      if (gateway === 'sms_android_sim1') {
+      let gwType = 'cloud_gateway';
+      if (gateway === 'sms_cloud') {
+        gwType = 'cloud_gateway';
+      } else if (gateway === 'sms_android_sim1') {
         simSlot = 1;
         gwType = 'android_sim';
       } else if (gateway === 'sms_android_sim2') {
         simSlot = 2;
         gwType = 'android_sim';
-      } else if (gateway === 'sms_greenweb') {
-        gwType = 'greenweb';
-      } else if (gateway === 'sms_bulksmsbd') {
-        gwType = 'bulksmsbd';
-      } else if (gateway === 'sms_custom_http') {
-        gwType = 'custom_http';
       }
 
       const token = localStorage.getItem('un_token');

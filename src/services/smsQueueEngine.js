@@ -168,7 +168,25 @@ class SmsQueueEngine {
   }
 
   /**
-   * Enqueue a new SMS for delivery
+   * Calculate SMS parts and charset
+   */
+  calculateSmsParts(text) {
+    if (!text) return { parts: 1, isUnicode: false, charCount: 0 };
+    const isUnicode = /[^\u0000-\u00ff]/.test(text);
+    const length = text.length;
+    let parts = 1;
+    if (isUnicode) {
+      if (length <= 70) parts = 1;
+      else parts = Math.ceil(length / 67);
+    } else {
+      if (length <= 160) parts = 1;
+      else parts = Math.ceil(length / 153);
+    }
+    return { parts: Math.max(1, parts), isUnicode, charCount: length };
+  }
+
+  /**
+   * Enqueue a new SMS for delivery with automated Pay-as-you-go balance verification
    */
   async enqueueSms({ userId, recipient, message, gatewayType = 'android_sim', simSlot = 1, deviceId = null }) {
     const cleanPhone = recipient.replace(/[^\d+]/g, '');
@@ -176,32 +194,113 @@ class SmsQueueEngine {
       throw new Error('Invalid recipient phone number.');
     }
 
-    // 1. If 3rd party SMS is selected, dispatch directly
-    if (gatewayType !== 'android_sim' && gatewayType !== 'auto') {
-      const provider = await db.getOne('SELECT * FROM sms_gateways WHERE provider_name = ? AND is_active = 1', [gatewayType]);
+    const { parts, isUnicode, charCount } = this.calculateSmsParts(message);
+
+    // 1. If 3rd party SMS is selected (or auto/cloud_gateway), handle billing & direct dispatch
+    if (gatewayType !== 'android_sim') {
+      // Find active gateway configured by Admin
+      let provider = null;
+      if (gatewayType && gatewayType !== 'auto' && gatewayType !== 'cloud_gateway') {
+        provider = await db.getOne('SELECT * FROM sms_gateways WHERE provider_name = ? AND is_active = 1', [gatewayType]);
+      } else {
+        // Find default active admin gateway
+        provider = await db.getOne('SELECT * FROM sms_gateways WHERE is_default = 1 AND is_active = 1 LIMIT 1');
+        if (!provider) {
+          provider = await db.getOne('SELECT * FROM sms_gateways WHERE is_active = 1 LIMIT 1');
+        }
+      }
+
       if (!provider) {
-        throw new Error(`Third-party SMS provider '${gatewayType}' is not configured or inactive.`);
+        throw new Error('No active Cloud SMS Gateway configured by Admin. Please contact system support or use Android SIM.');
+      }
+
+      // Check User SMS Wallet Balance & Rate
+      const user = await db.getOne('SELECT id, name, sms_balance, sms_credits, custom_sms_rate FROM users WHERE id = ?', [userId]);
+      if (!user) throw new Error('User account not found.');
+
+      const defaultRateSetting = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "default_sms_rate"');
+      const baseRate = parseFloat(defaultRateSetting?.setting_value || '0.35');
+      const userRate = user.custom_sms_rate !== null ? parseFloat(user.custom_sms_rate) : baseRate;
+      const totalCost = parts * userRate;
+
+      let paymentSource = 'BALANCE';
+      const currentCredits = parseInt(user.sms_credits || 0, 10);
+      const currentBalance = parseFloat(user.sms_balance || 0);
+
+      // Verify balance
+      if (currentCredits >= parts) {
+        paymentSource = 'CREDITS';
+      } else if (currentBalance >= totalCost) {
+        paymentSource = 'BALANCE';
+      } else {
+        throw new Error(`Insufficient SMS Balance. Cost for ${parts} part(s) is ৳${totalCost.toFixed(2)} (Rate: ৳${userRate.toFixed(2)}/SMS). Your Balance: ৳${currentBalance.toFixed(2)} (Credits: ${currentCredits}). Please recharge your SMS wallet.`);
+      }
+
+      // Pre-deduct balance / credits
+      let newBalance = currentBalance;
+      let newCredits = currentCredits;
+      if (paymentSource === 'CREDITS') {
+        newCredits = currentCredits - parts;
+        await db.query('UPDATE users SET sms_credits = ? WHERE id = ?', [newCredits, userId]);
+        await db.query(
+          `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
+           VALUES (?, 'SMS_DEBIT', 0.0000, ?, ?, ?, ?, 'COMPLETED', CURRENT_TIMESTAMP)`,
+          [userId, parts, userRate, newBalance, `SMS to ${cleanPhone} (${parts} part(s), ${charCount} chars)`]
+        );
+      } else {
+        newBalance = currentBalance - totalCost;
+        await db.query('UPDATE users SET sms_balance = ? WHERE id = ?', [newBalance, userId]);
+        await db.query(
+          `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
+           VALUES (?, 'SMS_DEBIT', ?, ?, ?, ?, ?, 'COMPLETED', CURRENT_TIMESTAMP)`,
+          [userId, totalCost, parts, userRate, newBalance, `SMS to ${cleanPhone} (${parts} part(s) @ ৳${userRate.toFixed(2)}/SMS)`]
+        );
       }
 
       try {
         const result = await ThirdPartySmsGateway.dispatch(provider, cleanPhone, message);
         await db.query(
-          `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, sent_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 'SENT', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [userId, gatewayType, cleanPhone, message]
+          `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, cost_bdt, sms_parts, charged, sent_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'SENT', ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [userId, provider.provider_name, cleanPhone, message, totalCost, parts]
         );
-        return { success: true, message: `SMS sent via ${gatewayType}`, result };
+        return {
+          success: true,
+          message: `SMS dispatched via Cloud Server (${provider.provider_name})`,
+          charged: totalCost,
+          smsParts: parts,
+          remainingBalance: newBalance,
+          remainingCredits: newCredits,
+          result
+        };
       } catch (err) {
+        // Automatic Refund on failure
+        if (paymentSource === 'CREDITS') {
+          await db.query('UPDATE users SET sms_credits = sms_credits + ? WHERE id = ?', [parts, userId]);
+          await db.query(
+            `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
+             VALUES (?, 'REFUND', 0.0000, ?, ?, ?, ?, 'COMPLETED', CURRENT_TIMESTAMP)`,
+            [userId, parts, userRate, newBalance, `Refund: SMS Delivery Failed (${err.message})`]
+          );
+        } else {
+          await db.query('UPDATE users SET sms_balance = sms_balance + ? WHERE id = ?', [totalCost, userId]);
+          await db.query(
+            `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
+             VALUES (?, 'REFUND', ?, ?, ?, ?, ?, 'COMPLETED', CURRENT_TIMESTAMP)`,
+            [userId, totalCost, parts, userRate, currentBalance, `Refund: SMS Delivery Failed (${err.message})`]
+          );
+        }
+
         await db.query(
-          `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, error_reason, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 'FAILED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [userId, gatewayType, cleanPhone, message, err.message]
+          `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, cost_bdt, sms_parts, charged, error_reason, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'FAILED', 0.0000, ?, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [userId, provider.provider_name, cleanPhone, message, parts, err.message]
         );
         throw err;
       }
     }
 
-    // 2. Resolve target Android Device
+    // 2. Resolve target Android Device (User Phone SIM is free routing)
     let targetDevice = null;
     if (deviceId) {
       targetDevice = await db.getOne('SELECT * FROM sms_devices WHERE id = ? AND user_id = ?', [deviceId, userId]);
@@ -225,11 +324,11 @@ class SmsQueueEngine {
 
     const slot = parseInt(simSlot) || targetDevice.default_sim_slot || 1;
 
-    // 3. Insert into queue
+    // 3. Insert into queue (Free routing via personal SIM)
     const res = await db.query(
-      `INSERT INTO sms_queue (user_id, device_id, gateway_type, sim_slot, recipient, message, status, created_at, updated_at)
-       VALUES (?, ?, 'android_sim', ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [userId, targetDevice.id, slot, cleanPhone, message]
+      `INSERT INTO sms_queue (user_id, device_id, gateway_type, sim_slot, recipient, message, status, cost_bdt, sms_parts, charged, created_at, updated_at)
+       VALUES (?, ?, 'android_sim', ?, ?, ?, 'PENDING', 0.0000, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [userId, targetDevice.id, slot, cleanPhone, message, parts]
     );
 
     const jobId = res.insertId || res.lastID;
@@ -249,6 +348,8 @@ class SmsQueueEngine {
       success: true,
       message: `SMS queued for delivery via Android SIM ${slot} (${slot === 1 ? targetDevice.sim1_operator : targetDevice.sim2_operator})`,
       jobId,
+      cost: 0,
+      smsParts: parts,
       device: {
         id: targetDevice.id,
         name: targetDevice.device_name,
