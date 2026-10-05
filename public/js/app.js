@@ -2898,7 +2898,11 @@ async function handleDirectRechargeSubmit(e) {
     if (json.success) {
       showToast(json.message, 'success');
       document.getElementById('form-direct-sms-recharge').reset();
-      renderSmsGatewayTab(document.getElementById('tab-content'));
+      if (state.currentTab === 'sms-wallet') {
+        renderSmsWalletPage(document.getElementById('tab-content'));
+      } else {
+        renderSmsGatewayTab(document.getElementById('tab-content'));
+      }
     } else {
       showToast(json.message || 'Recharge failed', 'error');
     }
@@ -2935,7 +2939,11 @@ async function handleBuyPackageWithWallet(pkgId, pkgName, price, smsCount) {
     const json = await res.json();
     if (json.success) {
       showToast(json.message, 'success');
-      renderSmsGatewayTab(document.getElementById('tab-content'));
+      if (state.currentTab === 'sms-wallet') {
+        renderSmsWalletPage(document.getElementById('tab-content'));
+      } else {
+        renderSmsGatewayTab(document.getElementById('tab-content'));
+      }
     } else {
       showToast(json.message || 'Purchase failed', 'error');
     }

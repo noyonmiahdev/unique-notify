@@ -21,6 +21,7 @@ const smsQueueEngine = require('./src/services/smsQueueEngine');
 
 // Middlewares
 const apiKeyAuth = require('./src/middlewares/apiKeyAuth');
+const flexibleAuth = require('./src/middlewares/flexibleAuth');
 const { apiLimiter } = require('./src/middlewares/rateLimiter');
 
 // Routes
@@ -122,16 +123,7 @@ app.use('/api', billingRoutes);
 app.use('/api/v1/api-keys', apiKeyRoutes);
 app.use('/api/user', userRoutes);
 
-// 3. API v1 Core Message & Automation Endpoints (Protected by Rate Limiter & API Key for integrations)
-const flexibleAuth = (req, res, next) => {
-  const hasApiKey = req.headers['x-api-key'] || req.query.api_key || req.headers['authorization'];
-  if (hasApiKey) {
-    return apiKeyAuth(req, res, next);
-  }
-  // Allow local dashboard calls
-  next();
-};
-
+// 3. API v1 Core Message & Automation Endpoints (Protected by Rate Limiter & Unified Flexible Auth)
 app.use('/api/v1', apiLimiter);
 app.use('/api/v1/otp', flexibleAuth, otpRoutes);
 app.use('/api/v1/messages', flexibleAuth, messageRoutes);

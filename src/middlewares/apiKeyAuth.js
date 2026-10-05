@@ -4,34 +4,47 @@
  */
 
 const db = require('../config/database');
+const jwt = require('jsonwebtoken');
 
 async function apiKeyAuth(req, res, next) {
   let apiKey = req.headers['x-api-key'] || req.query.api_key;
+  let isBearerJwt = false;
 
   if (!apiKey && req.headers['authorization']) {
     const parts = req.headers['authorization'].split(' ');
     if (parts.length === 2 && parts[0] === 'Bearer') {
       apiKey = parts[1];
+      if (!apiKey.startsWith('un_live_')) {
+        try {
+          const secret = process.env.JWT_SECRET || 'unique_notify_jwt_secret_change_me_998877';
+          const decoded = jwt.verify(apiKey, secret);
+          req.user = decoded;
+          req.authType = 'jwt';
+          return next();
+        } catch (jwtErr) {
+          // Continue to check api_keys table
+        }
+      }
     }
   }
 
   if (!apiKey) {
     return res.status(401).json({
       success: false,
-      message: 'Unauthorized: Missing API Key. Provide via X-API-Key header or api_key query param.'
+      message: 'Unauthorized: Missing API Key. Provide via X-API-Key header, api_key query param, or Bearer token.'
     });
   }
 
   try {
     const keyRecord = await db.getOne(
-      'SELECT id, name, api_key, is_active, rate_limit_per_min, allowed_ips FROM api_keys WHERE api_key = ?',
+      'SELECT id, name, user_id, api_key, is_active, rate_limit_per_min, allowed_ips FROM api_keys WHERE api_key = ?',
       [apiKey]
     );
 
     if (!keyRecord) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized: Invalid API Key.'
+        message: 'Unauthorized: Invalid API Key or expired authentication token.'
       });
     }
 

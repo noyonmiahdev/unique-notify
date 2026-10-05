@@ -8,30 +8,7 @@ const router = express.Router();
 const smsQueueEngine = require('../../../services/smsQueueEngine');
 const ThirdPartySmsGateway = require('../../../services/thirdPartySmsGateway');
 const db = require('../../../config/database');
-const jwtAuth = require('../../../middlewares/jwtAuth');
-const apiKeyAuth = require('../../../middlewares/apiKeyAuth');
-
-/**
- * Flexible Authenticator Middleware (Supports JWT or API Key)
- */
-async function flexibleAuth(req, res, next) {
-  const authHeader = req.headers['authorization'] || '';
-  const apiKeyHeader = req.headers['x-api-key'] || req.query.api_key;
-
-  if (authHeader.startsWith('Bearer ') && !authHeader.includes('un_live_')) {
-    return jwtAuth(req, res, next);
-  } else if (apiKeyHeader || authHeader.includes('un_live_')) {
-    return apiKeyAuth(req, res, next);
-  } else {
-    // Default to public/demo user if not specified in local dev
-    const defaultUser = await db.getOne('SELECT id, role FROM users ORDER BY id ASC LIMIT 1');
-    if (defaultUser) {
-      req.user = defaultUser;
-      return next();
-    }
-    return res.status(401).json({ success: false, message: 'Authentication required (Bearer JWT or X-API-Key)' });
-  }
-}
+const flexibleAuth = require('../../../middlewares/flexibleAuth');
 
 function getUserId(req) {
   if (req.user && req.user.id) return req.user.id;
@@ -377,19 +354,27 @@ router.post('/jobs/:id/retry', flexibleAuth, async (req, res) => {
 router.get('/wallet', flexibleAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
-    const user = await db.getOne(
+    let user = await db.getOne(
       'SELECT id, name, email, sms_balance, sms_credits, custom_sms_rate FROM users WHERE id = ?',
       [userId]
     );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found.' });
+      const admin = await db.getOne('SELECT id, name, email FROM admins WHERE id = ?', [userId]);
+      user = {
+        id: userId,
+        name: admin?.name || req.user?.name || 'User',
+        email: admin?.email || req.user?.email || '',
+        sms_balance: 0.00,
+        sms_credits: 0,
+        custom_sms_rate: null
+      };
     }
 
     const defaultRateSetting = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "default_sms_rate"');
     const minRechargeSetting = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "min_sms_recharge"');
     const baseRate = parseFloat(defaultRateSetting?.setting_value || '0.35');
-    const effectiveRate = user.custom_sms_rate !== null ? parseFloat(user.custom_sms_rate) : baseRate;
+    const effectiveRate = user.custom_sms_rate !== null && user.custom_sms_rate !== undefined ? parseFloat(user.custom_sms_rate) : baseRate;
 
     // Payment instruction numbers
     const bkash = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "payment_bkash_number"');
@@ -552,6 +537,7 @@ router.post('/wallet/recharge', flexibleAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     const user = await db.getOne('SELECT id, sms_balance FROM users WHERE id = ?', [userId]);
+    const currentBalance = user ? parseFloat(user.sms_balance || 0) : 0;
 
     await db.query(
       `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, payment_method, sender_number, transaction_id, status, created_at)
@@ -559,7 +545,7 @@ router.post('/wallet/recharge', flexibleAuth, async (req, res) => {
       [
         userId,
         targetAmount,
-        parseFloat(user.sms_balance || 0),
+        currentBalance,
         `Top-up Request ৳${targetAmount.toFixed(2)} via ${(payment_method || 'bkash').toUpperCase()}`,
         payment_method || 'bkash',
         sender_number || null,
