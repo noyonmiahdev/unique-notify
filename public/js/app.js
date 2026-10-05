@@ -496,9 +496,14 @@ function switchTab(tabId) {
     overview: 'System Overview',
     otp: 'OTP Center',
     devices: 'WhatsApp Gateways',
-    'sms-gateway': 'SMS Gateway & SIM Dispatcher',
-    broadcasts: 'Broadcast Campaigns',
-    contacts: 'Contact Book & Lists',
+    'sms-send': 'Quick Send SMS',
+    'sms-campaign': 'Bulk SMS Campaign Manager',
+    contacts: 'Phone Book & Contacts',
+    'sms-devices': 'Android Mobile Nodes & SIMs',
+    'sms-wallet': 'Prepaid SMS Wallet & Packages',
+    'sms-logs': 'SMS Queue & Delivery Logs',
+    'sms-gateway': 'Quick Send SMS',
+    broadcasts: 'WhatsApp Broadcast Campaigns',
     messenger: 'Direct Messenger',
     logs: 'Delivery Logs',
     'api-keys': 'API Keys Management',
@@ -613,8 +618,21 @@ function renderCurrentTab() {
     case 'devices':
       renderDevicesTab(container);
       break;
+    case 'sms-send':
     case 'sms-gateway':
-      renderSmsGatewayTab(container);
+      renderSmsDirectPage(container);
+      break;
+    case 'sms-campaign':
+      renderSmsCampaignPage(container);
+      break;
+    case 'sms-devices':
+      renderSmsDevicesPage(container);
+      break;
+    case 'sms-wallet':
+      renderSmsWalletPage(container);
+      break;
+    case 'sms-logs':
+      renderSmsLogsPage(container);
       break;
     case 'broadcasts':
       renderBroadcastsTab(container);
@@ -1378,6 +1396,270 @@ function renderDevicesTab(container) {
 }
 
 /**
+ * DEDICATED SMS PAGE CONTROLLERS (INDIVIDUAL SUB-MENU ROUTING)
+ */
+async function ensureSmsStateLoaded() {
+  try {
+    const token = localStorage.getItem('un_token');
+    const [walletRes, devicesRes] = await Promise.all([
+      fetch('/api/v1/sms/wallet', { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch('/api/v1/sms/devices', { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+    const walletJson = await walletRes.json();
+    const devicesJson = await devicesRes.json();
+    if (walletJson.success) state.smsWallet = walletJson.data;
+    if (devicesJson.success) state.smsDevices = devicesJson.data || [];
+  } catch (e) {
+    console.error('Failed to load SMS wallet/devices state:', e);
+  }
+}
+
+async function loadSmsDirectRecentLogs() {
+  const box = document.getElementById('sms-direct-recent-logs');
+  if (!box) return;
+  try {
+    const token = localStorage.getItem('un_token');
+    const res = await fetch('/api/v1/sms/logs?limit=5', { headers: { 'Authorization': `Bearer ${token}` } });
+    const json = await res.json();
+    const logs = json.success ? (json.data || []) : [];
+    if (logs.length === 0) {
+      box.innerHTML = '<p class="text-slate-400 py-3 text-center text-xs">No recent SMS dispatches.</p>';
+      return;
+    }
+    box.innerHTML = `
+      <div class="space-y-2">
+        ${logs.map(log => `
+          <div class="p-2.5 rounded-lg border border-slate-100 bg-slate-50/60 flex items-center justify-between text-xs">
+            <div>
+              <p class="font-mono font-bold text-slate-800 text-[11px]">${escapeHtml(log.recipient)}</p>
+              <p class="text-[10px] text-slate-500 truncate max-w-[130px]">${escapeHtml(log.message)}</p>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase ${log.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' : log.status === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'}">
+              ${log.status}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (e) {
+    box.innerHTML = '<p class="text-slate-400 py-2 text-xs">Unable to load recent logs.</p>';
+  }
+}
+
+async function renderSmsDirectPage(container) {
+  await ensureSmsStateLoaded();
+  const wallet = state.smsWallet || { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35 };
+  const deviceCount = (state.smsDevices || []).length;
+
+  container.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <i data-lucide="send" class="w-5 h-5 text-emerald-600"></i>
+            <span>Quick Send SMS</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Direct single SMS dispatcher with real-time character counter and automatic cellular routing.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="switchTab('sms-wallet')" class="px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Wallet: ৳${parseFloat(wallet.sms_balance || 0).toFixed(2)}</span>
+          </button>
+          <button onclick="switchTab('sms-devices')" class="px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Nodes: ${deviceCount} Active</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2" id="sms-direct-form-box"></div>
+        <div class="space-y-4">
+          <div class="saas-card p-5 space-y-3">
+            <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="info" class="w-4 h-4 text-emerald-600"></i>
+              <span>SMS Routing &amp; Rates</span>
+            </h3>
+            <ul class="text-xs text-slate-600 space-y-2 leading-relaxed">
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+                <span><strong>Platform Cloud Route:</strong> ৳${parseFloat(wallet.rate_per_sms || 0.35).toFixed(2)} / SMS part deducted from prepaid balance.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+                <span><strong>Android SIM Route:</strong> 100% Free dispatch through your paired phone's unlimited local SIM bundle.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+                <span><strong>Length Standards:</strong> English GSM 7-bit is 160 chars. Bengali/Unicode is 70 chars per SMS.</span>
+              </li>
+            </ul>
+          </div>
+          <div class="saas-card p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wider">Recent Dispatches</h3>
+              <button onclick="switchTab('sms-logs')" class="text-emerald-700 hover:text-emerald-800 text-[11px] font-semibold">View All Logs &rarr;</button>
+            </div>
+            <div id="sms-direct-recent-logs" class="text-xs text-slate-500">Loading recent logs...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  renderSmsDirectSubTab(document.getElementById('sms-direct-form-box'));
+  loadSmsDirectRecentLogs();
+  lucide.createIcons();
+}
+
+async function renderSmsCampaignPage(container) {
+  await ensureSmsStateLoaded();
+  const wallet = state.smsWallet || { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35 };
+
+  container.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <i data-lucide="megaphone" class="w-5 h-5 text-emerald-600"></i>
+            <span>Bulk SMS Campaign Manager</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Launch high-volume marketing and notification campaigns with automated rate-limiting, randomized anti-ban delay, and Spintax.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="switchTab('contacts')" class="px-3.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition flex items-center gap-1.5">
+            <i data-lucide="book-user" class="w-4 h-4 text-emerald-600"></i>
+            <span>Phone Book &amp; Contacts</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2" id="sms-campaign-form-box"></div>
+        <div class="space-y-4">
+          <div class="saas-card p-5 space-y-3">
+            <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+              <span>Anti-Ban &amp; Safety Guidelines</span>
+            </h3>
+            <ul class="text-xs text-slate-600 space-y-2 leading-relaxed">
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+                <span>Use Spintax syntax like <code class="font-mono text-emerald-700">{Hello|Hi|Greetings}</code> to randomize outbound texts.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+                <span>Randomized delay intervals (3s - 10s) prevent carrier spam filters from throttling your numbers.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+                <span>Import contacts directly from Phone Book or paste hundreds of comma/newline separated numbers.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  renderSmsBroadcastSubTab(document.getElementById('sms-campaign-form-box'));
+  lucide.createIcons();
+}
+
+async function renderSmsDevicesPage(container) {
+  await ensureSmsStateLoaded();
+  container.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <i data-lucide="smartphone" class="w-5 h-5 text-emerald-600"></i>
+            <span>Android Mobile Nodes &amp; SIM Cards</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Turn your Android phones into high-throughput cellular SMS dispatch gateways using SIM 1 and SIM 2.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="renderSmsDevicesPage(document.getElementById('tab-content'))" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title="Refresh">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
+          <button onclick="openPairAndroidModal()" class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Pair New Android Node</span>
+          </button>
+        </div>
+      </div>
+      <div id="sms-devices-grid-box"></div>
+    </div>
+  `;
+  await renderSmsDevicesSubTab(document.getElementById('sms-devices-grid-box'));
+  lucide.createIcons();
+}
+
+async function renderSmsWalletPage(container) {
+  await ensureSmsStateLoaded();
+  const wallet = state.smsWallet || { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35, min_recharge: 50 };
+
+  container.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
+            <span>Prepaid SMS Wallet &amp; Bundle Packages</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Manage your cash balance for pay-as-you-go dispatch (৳${parseFloat(wallet.rate_per_sms || 0.35).toFixed(2)}/SMS) or buy discounted high-volume bundles.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openSmsRechargeModal()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5">
+            <i data-lucide="credit-card" class="w-4 h-4"></i>
+            <span>Top Up Cash Balance</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="sms-wallet-content-box"></div>
+    </div>
+  `;
+  await renderSmsWalletSubTab(document.getElementById('sms-wallet-content-box'));
+  lucide.createIcons();
+}
+
+async function renderSmsLogsPage(container) {
+  container.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <i data-lucide="list-filter" class="w-5 h-5 text-emerald-600"></i>
+            <span>SMS Queue &amp; Dispatch Logs</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Real-time delivery status, carrier DLR responses, and instant retry for failed cellular messages.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="fetchSmsLogsAndRenderTable()" class="px-3.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refresh Logs</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="sms-logs-content-box"></div>
+    </div>
+  `;
+  await renderSmsLogsSubTab(document.getElementById('sms-logs-content-box'));
+  lucide.createIcons();
+}
+
+/**
  * TAB: SMS GATEWAY (PAY-AS-YOU-GO PLATFORM GATEWAY & ANDROID DUAL-SIM)
  */
 async function renderSmsGatewayTab(container) {
@@ -1725,8 +2007,12 @@ async function handleModalSmsRechargeSubmit(e) {
       showToast(json.message, 'success');
       closeSmsRechargeModal();
       document.getElementById('form-sms-modal-recharge').reset();
-      // Reload SMS Gateway Tab
-      renderSmsGatewayTab(document.getElementById('tab-content'));
+      // Reload SMS Tab
+      if (state.currentTab === 'sms-wallet') {
+        renderSmsWalletPage(document.getElementById('tab-content'));
+      } else {
+        renderSmsGatewayTab(document.getElementById('tab-content'));
+      }
     } else {
       showToast(json.message || 'Recharge failed', 'error');
     }
@@ -1825,7 +2111,10 @@ async function renderSmsDevicesSubTab(container) {
                     <div class="flex items-center gap-2">
                       <span class="w-5 h-5 rounded-md ${defaultSlot === 1 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center font-bold text-[10px]">1</span>
                       <div>
-                        <div class="font-semibold text-slate-900">SIM 1: ${escapeHtml(sim1)}</div>
+                        <div class="font-semibold text-slate-900 flex items-center gap-1.5">
+                          <span>SIM 1: ${escapeHtml(sim1)}</span>
+                          ${dev.sim1_sender_id ? `<span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">ID: ${escapeHtml(dev.sim1_sender_id)}</span>` : ''}
+                        </div>
                         ${defaultSlot === 1 ? '<span class="text-[10px] text-emerald-700 font-semibold">Active Default</span>' : ''}
                       </div>
                     </div>
@@ -1839,7 +2128,10 @@ async function renderSmsDevicesSubTab(container) {
                     <div class="flex items-center gap-2">
                       <span class="w-5 h-5 rounded-md ${defaultSlot === 2 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center font-bold text-[10px]">2</span>
                       <div>
-                        <div class="font-semibold text-slate-900">SIM 2: ${escapeHtml(sim2)}</div>
+                        <div class="font-semibold text-slate-900 flex items-center gap-1.5">
+                          <span>SIM 2: ${escapeHtml(sim2)}</span>
+                          ${dev.sim2_sender_id ? `<span class="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-bold font-mono">ID: ${escapeHtml(dev.sim2_sender_id)}</span>` : ''}
+                        </div>
                         ${defaultSlot === 2 ? '<span class="text-[10px] text-emerald-700 font-semibold">Active Default</span>' : ''}
                       </div>
                     </div>
@@ -1852,7 +2144,7 @@ async function renderSmsDevicesSubTab(container) {
 
               <!-- Card Actions -->
               <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <button onclick="setSmsSubTab('send')" class="text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1">
+                <button onclick="switchTab('sms-send')" class="text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1">
                   <span>Send SMS via this device</span>
                   <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
                 </button>
@@ -1901,7 +2193,9 @@ async function openPairAndroidModal() {
 function closePairAndroidModal() {
   const modal = document.getElementById('modal-pair-android');
   if (modal) modal.classList.add('hidden');
-  if (state.currentTab === 'sms-gateway' && state.activeSmsSubTab === 'devices') {
+  if (state.currentTab === 'sms-devices') {
+    renderSmsDevicesPage(document.getElementById('tab-content'));
+  } else if (state.currentTab === 'sms-gateway' && state.activeSmsSubTab === 'devices') {
     renderSmsDevicesSubTab(document.getElementById('sms-subtab-container'));
   }
 }
@@ -1920,7 +2214,11 @@ async function handleSetDefaultSim(deviceId, simSlot) {
     const json = await res.json();
     if (json.success) {
       showToast(`Default SIM updated to SIM ${simSlot}`, 'success');
-      renderSmsDevicesSubTab(document.getElementById('sms-subtab-container'));
+      if (state.currentTab === 'sms-devices') {
+        renderSmsDevicesPage(document.getElementById('tab-content'));
+      } else {
+        renderSmsDevicesSubTab(document.getElementById('sms-subtab-container'));
+      }
     } else {
       showToast(json.message, 'error');
     }
@@ -1940,7 +2238,11 @@ async function handleDeleteSmsDevice(deviceId) {
     const json = await res.json();
     if (json.success) {
       showToast('Device removed successfully', 'info');
-      renderSmsDevicesSubTab(document.getElementById('sms-subtab-container'));
+      if (state.currentTab === 'sms-devices') {
+        renderSmsDevicesPage(document.getElementById('tab-content'));
+      } else {
+        renderSmsDevicesSubTab(document.getElementById('sms-subtab-container'));
+      }
     } else {
       showToast(json.message, 'error');
     }
@@ -1961,10 +2263,14 @@ function renderSmsDirectSubTab(container) {
   if (devices.length > 0) {
     deviceOptions = `
       <optgroup label="My Android Phone SIMs (Free Dispatch)">
-        ${devices.map(dev => `
-          <option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 1 (${escapeHtml(dev.sim1_operator || 'Ready')}) [Free]</option>
-          <option value="android_sim_${dev.id}_2" ${dev.default_sim_slot === 2 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 2 (${escapeHtml(dev.sim2_operator || 'Ready')}) [Free]</option>
-        `).join('')}
+        ${devices.map(dev => {
+          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} [${dev.sim1_operator || 'SIM 1'}]` : (dev.sim1_operator || 'Ready');
+          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} [${dev.sim2_operator || 'SIM 2'}]` : (dev.sim2_operator || 'Ready');
+          return `
+            <option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)} [Free]</option>
+            <option value="android_sim_${dev.id}_2" ${dev.default_sim_slot === 2 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)} [Free]</option>
+          `;
+        }).join('')}
       </optgroup>
     `;
   }
@@ -2135,7 +2441,11 @@ async function handleDirectSmsSubmit(e) {
           if (kpiCred) kpiCred.innerText = `${parseInt(wJson.data.sms_credits || 0, 10).toLocaleString()} SMS`;
         }
       } catch {}
-      setTimeout(() => setSmsSubTab('logs'), 1000);
+      if (state.currentTab === 'sms-send') {
+        loadSmsDirectRecentLogs();
+      } else {
+        setTimeout(() => setSmsSubTab('logs'), 1000);
+      }
     } else {
       showToast(json.message || 'Failed to dispatch SMS', 'error');
     }
@@ -2160,10 +2470,14 @@ function renderSmsBroadcastSubTab(container) {
   if (devices.length > 0) {
     deviceOptions = `
       <optgroup label="My Android Phone SIMs (Free)">
-        ${devices.map(dev => `
-          <option value="android_sim_${dev.id}_1">${escapeHtml(dev.device_name)} - SIM 1 (${escapeHtml(dev.sim1_operator || 'SIM')}) [Free]</option>
-          <option value="android_sim_${dev.id}_2">${escapeHtml(dev.device_name)} - SIM 2 (${escapeHtml(dev.sim2_operator || 'SIM')}) [Free]</option>
-        `).join('')}
+        ${devices.map(dev => {
+          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} [${dev.sim1_operator || 'SIM 1'}]` : (dev.sim1_operator || 'SIM 1');
+          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} [${dev.sim2_operator || 'SIM 2'}]` : (dev.sim2_operator || 'SIM 2');
+          return `
+            <option value="android_sim_${dev.id}_1">${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)} [Free]</option>
+            <option value="android_sim_${dev.id}_2">${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)} [Free]</option>
+          `;
+        }).join('')}
       </optgroup>
     `;
   }
@@ -2268,8 +2582,11 @@ async function handleSmsBroadcastSubmit(e) {
     const json = await res.json();
     if (json.success) {
       showToast(`Campaign queued: ${json.data?.queued_count || recipients.length} SMS scheduled`, 'success');
-      document.getElementById('sms-broadcast-form').reset();
-      setTimeout(() => setSmsSubTab('logs'), 1000);
+      if (state.currentTab === 'sms-campaign') {
+        setTimeout(() => switchTab('sms-logs'), 1000);
+      } else {
+        setTimeout(() => setSmsSubTab('logs'), 1000);
+      }
     } else {
       showToast(json.message || 'Failed to start broadcast', 'error');
     }
@@ -2680,7 +2997,11 @@ async function handleBuyPackageManualSubmit(e) {
       showToast(json.message, 'success');
       closeBuyPackageManualModal();
       document.getElementById('form-buy-pkg-manual').reset();
-      renderSmsGatewayTab(document.getElementById('tab-content'));
+      if (state.currentTab === 'sms-wallet') {
+        renderSmsWalletPage(document.getElementById('tab-content'));
+      } else {
+        renderSmsGatewayTab(document.getElementById('tab-content'));
+      }
     } else {
       showToast(json.message || 'Submission failed', 'error');
     }

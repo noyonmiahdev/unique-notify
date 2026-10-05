@@ -128,6 +128,7 @@ const PAGE_META = {
   payments:        { title: 'Payments & Billing Approvals',   sub: 'Review and approve offline payment transactions' },
   gateways:        { title: 'Gateway Engine Status',          sub: 'Monitor Meta Cloud API and Baileys QR sessions' },
   smsgateways:     { title: 'Third-Party SMS Gateways',       sub: 'Super Admin only: Greenweb, BulkSMSBD, Custom HTTP' },
+  smsdevices:      { title: 'Android Mobile Nodes & Sender IDs', sub: 'Configure SIM Sender IDs and allocate Shared/Dedicated gateways' },
   smsbilling:      { title: 'SMS Pricing & Package Plans',    sub: 'Set Pay-as-you-go rate (৳0.35) and create SMS bundles' },
   smsusers:        { title: 'User SMS Wallets',               sub: 'Monitor client cash balance, SMS credits, and rates' },
   smstransactions: { title: 'SMS Top-up & Package Approvals', sub: 'Review pending client mobile recharge requests' },
@@ -169,6 +170,7 @@ function gotoPage(name) {
     payments:        loadPayments,
     gateways:        loadGateways,
     smsgateways:     loadSmsGateways,
+    smsdevices:      loadAdminSmsDevices,
     smsbilling:      loadSmsBilling,
     smsusers:        loadSmsUsers,
     smstransactions: loadSmsTransactions,
@@ -1289,3 +1291,181 @@ async function rejectSmsTransaction(id) {
     }
   } catch (err) { showToast(err.message, 'error'); }
 }
+
+/* ═══════════════════════════════════════════
+   ANDROID SMS NODES & SENDER ID ASSIGNMENT
+═══════════════════════════════════════════ */
+let adminSmsDevicesList = [];
+let adminUsersList = [];
+
+async function loadAdminSmsDevices() {
+  const tbody = document.getElementById('adminSmsDevicesTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-400">Loading devices...</td></tr>';
+  try {
+    const res = await api('/sms/devices');
+    if (!res.success) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-rose-500 py-6">Failed to load devices.</td></tr>';
+      return;
+    }
+    adminSmsDevicesList = res.devices || [];
+    adminUsersList = res.users || [];
+
+    // Populate user select in modal
+    const userSelect = document.getElementById('assign-user-select');
+    if (userSelect) {
+      userSelect.innerHTML = '<option value="">-- Select Client Account --</option>' +
+        adminUsersList.map(u => `<option value="${u.id}">${esc(u.name)} (${esc(u.email)})</option>`).join('');
+    }
+
+    if (adminSmsDevicesList.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-slate-400 py-8">No Android devices paired yet. Pair an Android Gateway node to configure sender IDs.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    adminSmsDevicesList.forEach(dev => {
+      const isOnline = dev.status === 'ONLINE';
+      const isShared = dev.is_shared == 1;
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 transition';
+      tr.innerHTML = `
+        <td class="py-3 px-4">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg ${isOnline ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'} flex items-center justify-center font-bold text-xs">
+              <i data-lucide="smartphone" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="font-bold text-slate-900">${esc(dev.device_name || 'Android Device')}</p>
+              <p class="text-[11px] text-slate-500 font-mono">${esc(dev.phone_model || '')} ${dev.phone_number ? '&bull; ' + esc(dev.phone_number) : ''}</p>
+            </div>
+          </div>
+        </td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-800">${esc(dev.owner_name || 'Admin / Platform')}</p>
+          <p class="text-[11px] text-slate-400 font-mono">${esc(dev.owner_email || 'System')}</p>
+        </td>
+        <td class="py-3 px-4">
+          <div class="font-semibold text-slate-800">${esc(dev.sim1_operator || 'SIM 1')}</div>
+          ${dev.sim1_sender_id ? `<span class="inline-block mt-0.5 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono font-bold text-[10px] border border-emerald-200">${esc(dev.sim1_sender_id)}</span>` : '<span class="text-[11px] text-slate-400 italic">No Sender ID</span>'}
+        </td>
+        <td class="py-3 px-4">
+          <div class="font-semibold text-slate-800">${esc(dev.sim2_operator || 'SIM 2')}</div>
+          ${dev.sim2_sender_id ? `<span class="inline-block mt-0.5 px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono font-bold text-[10px] border border-blue-200">${esc(dev.sim2_sender_id)}</span>` : '<span class="text-[11px] text-slate-400 italic">No Sender ID</span>'}
+        </td>
+        <td class="py-3 px-4">
+          ${isShared 
+            ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">Shared Platform Pool</span>' 
+            : '<span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold text-[10px]">Dedicated Gateway</span>'}
+        </td>
+        <td class="py-3 px-4">
+          ${isShared 
+            ? '<span class="text-[11px] text-slate-500">All System Users</span>' 
+            : (dev.assigned_name ? `<div><p class="font-bold text-purple-900">${esc(dev.assigned_name)}</p><p class="text-[11px] text-slate-400 font-mono">${esc(dev.assigned_email)}</p></div>` : '<span class="text-rose-500 text-[11px] font-semibold">Unassigned</span>')}
+        </td>
+        <td class="py-3 px-4">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
+            <span class="font-semibold text-[11px] ${isOnline ? 'text-emerald-700' : 'text-slate-400'}">${dev.status || 'OFFLINE'}</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">${dev.battery_level ? 'Battery: ' + dev.battery_level + '%' : 'Battery: N/A'}</p>
+        </td>
+        <td class="py-3 px-4 text-right">
+          <button onclick="openAssignDeviceModal(${dev.id})" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition flex items-center gap-1.5 ml-auto">
+            <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+            <span>Configure</span>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    lucide.createIcons();
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-rose-500 py-6">Error loading devices: ' + esc(err.message) + '</td></tr>';
+  }
+}
+
+function openAssignDeviceModal(deviceId) {
+  const dev = adminSmsDevicesList.find(d => d.id === deviceId);
+  if (!dev) return;
+
+  document.getElementById('assign-device-id').value = dev.id;
+  document.getElementById('modalAssignDeviceTitle').textContent = `Configure ${dev.device_name || 'Device #' + dev.id}`;
+  document.getElementById('modalAssignDeviceSubtitle').textContent = `Model: ${dev.phone_model || 'Unknown'} | SIM1: ${dev.sim1_operator || 'Active'} | SIM2: ${dev.sim2_operator || 'Empty'}`;
+  document.getElementById('assign-sim1-sender').value = dev.sim1_sender_id || '';
+  document.getElementById('assign-sim2-sender').value = dev.sim2_sender_id || '';
+
+  const isShared = dev.is_shared == 1;
+  const radios = document.getElementsByName('assign_routing_mode');
+  for (const r of radios) {
+    if (isShared && r.value === 'shared') r.checked = true;
+    if (!isShared && r.value === 'dedicated') r.checked = true;
+  }
+
+  toggleAssignClientDropdown(!isShared);
+  if (dev.assigned_user_id) {
+    document.getElementById('assign-user-select').value = dev.assigned_user_id;
+  } else {
+    document.getElementById('assign-user-select').value = '';
+  }
+
+  document.getElementById('modalAssignDevice').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeAssignDeviceModal() {
+  document.getElementById('modalAssignDevice').classList.add('hidden');
+}
+
+function toggleAssignClientDropdown(isDedicated) {
+  const box = document.getElementById('assign-client-box');
+  if (isDedicated) {
+    box.classList.remove('hidden');
+  } else {
+    box.classList.add('hidden');
+  }
+}
+
+async function handleAssignDeviceSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('assign-device-id').value;
+  const sim1_sender_id = document.getElementById('assign-sim1-sender').value.trim();
+  const sim2_sender_id = document.getElementById('assign-sim2-sender').value.trim();
+  
+  let routingMode = 'shared';
+  const radios = document.getElementsByName('assign_routing_mode');
+  for (const r of radios) {
+    if (r.checked) routingMode = r.value;
+  }
+  const is_shared = routingMode === 'shared' ? 1 : 0;
+  const assigned_user_id = is_shared ? null : (document.getElementById('assign-user-select').value || null);
+
+  if (!is_shared && !assigned_user_id) {
+    showToast('Please select a client account for dedicated assignment.', 'error');
+    return;
+  }
+
+  try {
+    const res = await api(`/sms/devices/${id}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({
+        sim1_sender_id,
+        sim2_sender_id,
+        is_shared,
+        assigned_user_id
+      })
+    });
+
+    if (res.success) {
+      showToast(res.message);
+      closeAssignDeviceModal();
+      loadAdminSmsDevices();
+    } else {
+      showToast(res.message || 'Failed to update device settings', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+

@@ -181,11 +181,13 @@ router.get('/devices', flexibleAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     const devices = await db.query(
-      `SELECT id, device_name, phone_number, sim1_operator, sim2_operator, default_sim_slot, battery_level, is_charging, status, last_seen_at, created_at
+      `SELECT id, user_id, device_name, phone_number, sim1_operator, sim2_operator,
+              sim1_sender_id, sim2_sender_id, is_shared, assigned_user_id,
+              default_sim_slot, battery_level, is_charging, status, last_seen_at, created_at
        FROM sms_devices 
-       WHERE user_id = ? 
+       WHERE user_id = ? OR assigned_user_id = ? OR is_shared = 1
        ORDER BY id DESC`,
-      [userId]
+      [userId, userId]
     );
 
     // Also get active 3rd party providers

@@ -146,6 +146,10 @@
         <i data-lucide="radio" class="w-4 h-4 text-slate-500"></i>
         <span>SMS Gateways</span>
       </a>
+      <a class="sidebar-link" id="nav-smsdevices" onclick="gotoPage('smsdevices')">
+        <i data-lucide="smartphone" class="w-4 h-4 text-slate-500"></i>
+        <span>Android Nodes &amp; Sender IDs</span>
+      </a>
       <a class="sidebar-link" id="nav-smsbilling" onclick="gotoPage('smsbilling')">
         <i data-lucide="coins" class="w-4 h-4 text-slate-500"></i>
         <span>SMS Pricing &amp; Packages</span>
@@ -570,6 +574,42 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="smsGatewaysGrid"></div>
+      </div>
+
+      <!-- ──────────── TAB: ANDROID NODES & SENDER IDS (ADMIN ONLY) ──────────── -->
+      <div id="page-smsdevices" class="tab-content space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Android Mobile Nodes &amp; Sender IDs</h2>
+            <p class="text-xs text-slate-500">Configure Sender ID names for SIM 1 &amp; SIM 2, and assign devices as Shared Platform Pool or Dedicated to a client.</p>
+          </div>
+          <button onclick="loadAdminSmsDevices()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refresh Devices</span>
+          </button>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold text-[11px] border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-4">Device &amp; Phone</th>
+                  <th class="py-3 px-4">Paired By</th>
+                  <th class="py-3 px-4">SIM 1 &amp; Sender ID</th>
+                  <th class="py-3 px-4">SIM 2 &amp; Sender ID</th>
+                  <th class="py-3 px-4">Routing Pool</th>
+                  <th class="py-3 px-4">Assigned Client</th>
+                  <th class="py-3 px-4">Status &amp; Battery</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminSmsDevicesTbody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                <tr><td colspan="8" class="text-center py-8 text-slate-400">Loading Android devices...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- ──────────── TAB: SMS PRICING & PACKAGES ──────────── -->
@@ -1017,6 +1057,70 @@
       <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
         <button type="button" onclick="closeAdjustSmsModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
         <button type="submit" class="btn-primary"><i data-lucide="check" class="w-3.5 h-3.5"></i>Apply Adjustment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── MODAL: CONFIGURE ANDROID SENDER ID & DEDICATED ASSIGNMENT ─── -->
+<div id="modalAssignDevice" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div>
+        <h3 id="modalAssignDeviceTitle" class="font-bold text-slate-900 text-sm">Configure Android Node &amp; Sender ID</h3>
+        <p id="modalAssignDeviceSubtitle" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button onclick="closeAssignDeviceModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <form onsubmit="handleAssignDeviceSubmit(event)" class="p-6 space-y-4 text-xs">
+      <input type="hidden" id="assign-device-id">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">SIM 1 Sender ID / Mask Label</label>
+          <input type="text" id="assign-sim1-sender" placeholder="e.g. ITStar-SIM1 or 017..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+          <p class="text-[10px] text-slate-400 mt-1">Displayed as the sender channel label</p>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">SIM 2 Sender ID / Mask Label</label>
+          <input type="text" id="assign-sim2-sender" placeholder="e.g. ITStar-SIM2 or 018..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+          <p class="text-[10px] text-slate-400 mt-1">Displayed as the sender channel label</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Device Routing Mode</label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+            <input type="radio" name="assign_routing_mode" value="shared" onchange="toggleAssignClientDropdown(false)" class="text-emerald-600">
+            <div>
+              <span class="font-bold text-slate-900 block text-xs">Shared Platform Pool</span>
+              <span class="text-[10px] text-slate-500">Available to all users as a public gateway route</span>
+            </div>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+            <input type="radio" name="assign_routing_mode" value="dedicated" onchange="toggleAssignClientDropdown(true)" class="text-emerald-600">
+            <div>
+              <span class="font-bold text-slate-900 block text-xs">Dedicated to Client</span>
+              <span class="text-[10px] text-slate-500">Exclusively reserved for one chosen client</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div id="assign-client-box" class="hidden">
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Assign to Dedicated Client Account</label>
+        <select id="assign-user-select" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none font-medium">
+          <!-- Populated dynamically with users -->
+        </select>
+        <p class="text-[10px] text-slate-400 mt-1">Only this customer will be able to dispatch SMS through this phone/SIMs</p>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+        <button type="button" onclick="closeAssignDeviceModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="btn-primary"><i data-lucide="check" class="w-3.5 h-3.5"></i>Save Configuration</button>
       </div>
     </form>
   </div>

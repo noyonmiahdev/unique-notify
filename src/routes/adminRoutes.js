@@ -858,8 +858,41 @@ router.post('/sms/transactions/:id/approve', adminAuth, async (req, res) => {
 
 router.post('/sms/transactions/:id/reject', adminAuth, async (req, res) => {
   try {
-    await db.query('UPDATE sms_transactions SET status = "REJECTED" WHERE id = ?', [req.params.id]);
-    return res.status(200).json({ success: true, message: `Transaction #${req.params.id} marked as rejected.` });
+    await db.query('UPDATE sms_transactions SET status = "FAILED" WHERE id = ?', [req.params.id]);
+    return res.status(200).json({ success: true, message: `Transaction #${req.params.id} marked as rejected/failed.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 8. Android SMS Devices & Dedicated Routing
+router.get('/sms/devices', adminAuth, async (req, res) => {
+  try {
+    const devices = await db.query(`
+      SELECT d.*, 
+             u.name as owner_name, u.email as owner_email,
+             au.name as assigned_name, au.email as assigned_email
+      FROM sms_devices d
+      LEFT JOIN users u ON d.user_id = u.id
+      LEFT JOIN users au ON d.assigned_user_id = au.id
+      ORDER BY d.id DESC
+    `);
+    const users = await db.query('SELECT id, name, email FROM users ORDER BY name ASC');
+    return res.status(200).json({ success: true, devices, users });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/devices/:id/assign', adminAuth, async (req, res) => {
+  const { sim1_sender_id, sim2_sender_id, is_shared, assigned_user_id } = req.body;
+  try {
+    await db.query(`
+      UPDATE sms_devices 
+      SET sim1_sender_id = ?, sim2_sender_id = ?, is_shared = ?, assigned_user_id = ?, updated_at = NOW()
+      WHERE id = ?
+    `, [sim1_sender_id || null, sim2_sender_id || null, is_shared ? 1 : 0, assigned_user_id || null, req.params.id]);
+    return res.status(200).json({ success: true, message: 'Device Sender ID and routing assignment updated.' });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

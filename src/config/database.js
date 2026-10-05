@@ -426,6 +426,10 @@ async function createTables() {
       phone_number VARCHAR(30) DEFAULT NULL,
       sim1_operator VARCHAR(50) DEFAULT 'SIM 1',
       sim2_operator VARCHAR(50) DEFAULT 'SIM 2',
+      sim1_sender_id VARCHAR(50) DEFAULT NULL,
+      sim2_sender_id VARCHAR(50) DEFAULT NULL,
+      is_shared TINYINT(1) DEFAULT 0,
+      assigned_user_id INT DEFAULT NULL,
       default_sim_slot INT DEFAULT 1,
       battery_level INT DEFAULT 100,
       is_charging TINYINT(1) DEFAULT 0,
@@ -515,6 +519,10 @@ async function createTables() {
   await addColumnIfNotExists('sms_queue', 'cost_bdt', 'DECIMAL(10,4) DEFAULT 0.0000');
   await addColumnIfNotExists('sms_queue', 'sms_parts', 'INT DEFAULT 1');
   await addColumnIfNotExists('sms_queue', 'charged', 'TINYINT(1) DEFAULT 0');
+  await addColumnIfNotExists('sms_devices', 'sim1_sender_id', 'VARCHAR(50) DEFAULT NULL');
+  await addColumnIfNotExists('sms_devices', 'sim2_sender_id', 'VARCHAR(50) DEFAULT NULL');
+  await addColumnIfNotExists('sms_devices', 'is_shared', 'TINYINT(1) DEFAULT 0');
+  await addColumnIfNotExists('sms_devices', 'assigned_user_id', 'INT DEFAULT NULL');
 }
 
 /**
