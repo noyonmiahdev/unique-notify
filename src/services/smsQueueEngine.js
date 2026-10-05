@@ -422,18 +422,25 @@ class SmsQueueEngine {
     const device = await db.getOne('SELECT * FROM sms_devices WHERE device_token = ?', [deviceToken]);
     if (!device) throw new Error('Unauthorized device token.');
 
+    // Fetch jobs that are PENDING or previously marked PROCESSING without completion (>45s)
     const jobs = await db.query(
-      `SELECT id as jobId, recipient, message, sim_slot as simSlot, created_at as createdAt
+      `SELECT id, id as jobId, id as job_id, recipient, message, sim_slot, sim_slot as simSlot, created_at, created_at as createdAt
        FROM sms_queue 
-       WHERE device_id = ? AND status = 'PENDING' 
+       WHERE (device_id = ? OR device_id IS NULL) 
+         AND (
+           status = 'PENDING' 
+           OR status = 'QUEUED' 
+           OR (status = 'PROCESSING' AND updated_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 45 SECOND))
+         )
        ORDER BY id ASC LIMIT ?`,
       [device.id, parseInt(limit)]
     );
 
     if (jobs.length > 0) {
-      const jobIds = jobs.map(j => j.jobId);
+      const jobIds = jobs.map(j => j.id || j.jobId);
       await db.query(
-        `UPDATE sms_queue SET status = 'PROCESSING', attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${jobIds.join(',')})`
+        `UPDATE sms_queue SET device_id = ?, status = 'PROCESSING', attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${jobIds.join(',')})`,
+        [device.id]
       );
     }
 
@@ -443,13 +450,34 @@ class SmsQueueEngine {
   /**
    * Android App reports delivery status back
    */
-  async acknowledgeJob(deviceToken, { jobId, status, errorReason = null }) {
+  async acknowledgeJob(deviceToken, jobIdOrObj, statusParam = 'SENT', errorParam = null) {
     const device = await db.getOne('SELECT * FROM sms_devices WHERE device_token = ?', [deviceToken]);
     if (!device) throw new Error('Unauthorized device token.');
 
-    const cleanStatus = ['SENT', 'DELIVERED', 'FAILED'].includes(status) ? status : 'SENT';
+    let jobId = null;
+    let status = 'SENT';
+    let errorReason = null;
+
+    if (typeof jobIdOrObj === 'object' && jobIdOrObj !== null) {
+      jobId = jobIdOrObj.jobId || jobIdOrObj.job_id || jobIdOrObj.id;
+      status = jobIdOrObj.status || statusParam;
+      errorReason = jobIdOrObj.errorReason || jobIdOrObj.error_reason || errorParam;
+    } else {
+      jobId = jobIdOrObj;
+      status = statusParam;
+      errorReason = errorParam;
+    }
+
+    if (!jobId) {
+      throw new Error('Valid jobId is required for acknowledgement.');
+    }
+
+    const cleanStatus = ['SENT', 'DELIVERED', 'FAILED', 'sent', 'delivered', 'failed'].includes(status) 
+      ? status.toUpperCase() 
+      : 'SENT';
+
     let sql = 'UPDATE sms_queue SET status = ?, error_reason = ?, updated_at = CURRENT_TIMESTAMP';
-    const params = [cleanStatus, errorReason];
+    const params = [cleanStatus, errorReason || null];
 
     if (cleanStatus === 'SENT') {
       sql += ', sent_at = CURRENT_TIMESTAMP';
@@ -457,13 +485,13 @@ class SmsQueueEngine {
       sql += ', delivered_at = CURRENT_TIMESTAMP';
     }
 
-    sql += ' WHERE id = ? AND device_id = ?';
-    params.push(jobId, device.id);
+    sql += ' WHERE id = ?';
+    params.push(jobId);
 
     await db.query(sql, params);
     this.broadcast('sms_job_updated', { jobId, status: cleanStatus, deviceId: device.id });
 
-    return { success: true };
+    return { success: true, message: `Job #${jobId} status updated to ${cleanStatus}` };
   }
 }
 
