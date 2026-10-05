@@ -13,6 +13,7 @@ const adminAuth = require('../middlewares/adminAuth');
 const { adminLoginLimiter } = require('../middlewares/rateLimiter');
 const { logAudit, getRecentLogs } = require('../services/auditService');
 const ThirdPartySmsGateway = require('../services/thirdPartySmsGateway');
+const smsQueueEngine = require('../services/smsQueueEngine');
 
 /* ────────────────────────────────────────────────
    AUTH
@@ -893,6 +894,37 @@ router.post('/sms/devices/:id/assign', adminAuth, async (req, res) => {
       WHERE id = ?
     `, [sim1_sender_id || null, sim2_sender_id || null, is_shared ? 1 : 0, assigned_user_id || null, req.params.id]);
     return res.status(200).json({ success: true, message: 'Device Sender ID and routing assignment updated.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sms/device/pair-request', adminAuth, async (req, res) => {
+  try {
+    const deviceName = req.body.deviceName || req.body.device_name || 'Platform Gateway Node';
+    const pairing = await smsQueueEngine.createPairingCode(1, deviceName);
+    // Automatically set as shared pool
+    await db.query('UPDATE sms_devices SET is_shared = 1 WHERE id = ?', [pairing.device.id]);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Admin pairing code generated',
+      data: {
+        code: pairing.pairingCode,
+        pairingCode: pairing.pairingCode,
+        deviceToken: pairing.deviceToken,
+        device: pairing.device
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.delete('/sms/devices/:id', adminAuth, async (req, res) => {
+  try {
+    await db.query('DELETE FROM sms_devices WHERE id = ?', [req.params.id]);
+    return res.status(200).json({ success: true, message: 'Device removed successfully.' });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

@@ -1371,10 +1371,15 @@ async function loadAdminSmsDevices() {
           <p class="text-[10px] text-slate-400 mt-0.5">${dev.battery_level ? 'Battery: ' + dev.battery_level + '%' : 'Battery: N/A'}</p>
         </td>
         <td class="py-3 px-4 text-right">
-          <button onclick="openAssignDeviceModal(${dev.id})" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition flex items-center gap-1.5 ml-auto">
-            <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
-            <span>Configure</span>
-          </button>
+          <div class="flex items-center justify-end gap-1.5">
+            <button onclick="openAssignDeviceModal(${dev.id})" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition flex items-center gap-1">
+              <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+              <span>Configure</span>
+            </button>
+            <button onclick="deleteAdminSmsDevice(${dev.id})" class="px-2 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition" title="Unlink Device">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
         </td>
       `;
       tbody.appendChild(tr);
@@ -1383,6 +1388,50 @@ async function loadAdminSmsDevices() {
   } catch (err) {
     console.error(err);
     tbody.innerHTML = '<tr><td colspan="8" class="text-center text-rose-500 py-6">Error loading devices: ' + esc(err.message) + '</td></tr>';
+  }
+}
+
+async function openAdminPairAndroidModal() {
+  const modal = document.getElementById('modalAdminPairAndroid');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const codeDisplay = document.getElementById('admin-pairing-code-display');
+  if (codeDisplay) codeDisplay.textContent = 'GENERATING...';
+
+  try {
+    const res = await api('/sms/device/pair-request', { method: 'POST', body: JSON.stringify({ device_name: 'Platform Node' }) });
+    if (res.success && res.data) {
+      if (codeDisplay) codeDisplay.textContent = res.data.code;
+    } else {
+      if (codeDisplay) codeDisplay.textContent = 'ERROR';
+      showToast(res.message || 'Failed to generate pairing code', 'error');
+    }
+  } catch (err) {
+    if (codeDisplay) codeDisplay.textContent = 'ERROR';
+    showToast(err.message, 'error');
+  }
+  lucide.createIcons();
+}
+
+function closeAdminPairAndroidModal() {
+  const modal = document.getElementById('modalAdminPairAndroid');
+  if (modal) modal.classList.add('hidden');
+  loadAdminSmsDevices();
+}
+
+async function deleteAdminSmsDevice(id) {
+  if (!confirm(`Unpair and remove Android device #${id}?`)) return;
+  try {
+    const res = await api(`/sms/devices/${id}`, { method: 'DELETE' });
+    if (res.success) {
+      showToast(res.message);
+      loadAdminSmsDevices();
+    } else {
+      showToast(res.message || 'Failed to remove device', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
   }
 }
 

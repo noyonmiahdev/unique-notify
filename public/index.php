@@ -448,14 +448,6 @@
             <span>Phone Book &amp; Contacts</span>
           </button>
 
-          <button onclick="switchTab('sms-devices')" id="nav-sms-devices" class="nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
-            <div class="flex items-center gap-2.5">
-              <i data-lucide="smartphone" class="w-4 h-4 text-emerald-600"></i>
-              <span>Android Mobile Nodes</span>
-            </div>
-            <span id="sidebar-sms-badge" class="w-2 h-2 rounded-full bg-slate-300"></span>
-          </button>
-
           <button onclick="switchTab('sms-wallet')" id="nav-sms-wallet" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
             <i data-lucide="wallet" class="w-4 h-4 text-emerald-600"></i>
             <span>SMS Wallet &amp; Top-up</span>
@@ -669,63 +661,6 @@
           <button type="submit" id="btn-quick-send-submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs">Dispatch</button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- Pairing Code Modal -->
-  <div id="modal-pair-android" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-slide-up">
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <i data-lucide="smartphone" class="w-4 h-4"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-sm text-slate-900">Pair Android SMS Gateway</h3>
-            <p class="text-xs text-slate-500">Connect your mobile phone in seconds</p>
-          </div>
-        </div>
-        <button onclick="closePairAndroidModal()" class="text-slate-400 hover:text-slate-600 p-1">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <div class="p-6 space-y-5 text-xs">
-        <div class="text-center space-y-2">
-          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Your Pairing Code</span>
-          <div class="p-4 bg-slate-50 border-2 border-dashed border-emerald-500 rounded-xl flex items-center justify-center gap-3">
-            <span id="android-pairing-code-display" class="font-mono text-3xl font-extrabold text-emerald-700 tracking-widest">------</span>
-            <button onclick="copyToClipboard(document.getElementById('android-pairing-code-display').innerText)" class="p-2 border border-slate-200 rounded-lg hover:bg-white text-slate-600" title="Copy Code">
-              <i data-lucide="copy" class="w-4 h-4"></i>
-            </button>
-          </div>
-          <p id="android-pairing-code-timer" class="text-[11px] text-slate-400">Valid for 10 minutes</p>
-        </div>
-
-        <div class="space-y-3 pt-2 border-t border-slate-100">
-          <div class="font-bold text-slate-800 text-xs">3 Simple Steps to Connect:</div>
-          <div class="space-y-2.5 text-slate-600">
-            <div class="flex items-start gap-2.5">
-              <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">1</span>
-              <div>Install the <strong>Unique-Notify Gateway APK</strong> on your Android phone (find APK in <code class="font-mono text-slate-700">/android-gateway</code>).</div>
-            </div>
-            <div class="flex items-start gap-2.5">
-              <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">2</span>
-              <div>Open the app, enter your Server URL (<code class="font-mono text-slate-700" id="android-modal-server-url">https://uniquenotify.itstarlab.com</code>) and enter the 6-character code above.</div>
-            </div>
-            <div class="flex items-start gap-2.5">
-              <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">3</span>
-              <div>Grant SMS and Phone State permissions, enable the <strong>SMS Dispatch Worker</strong> switch, and tap <strong>Battery Exemption</strong>.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="pt-2 flex justify-end">
-          <button onclick="closePairAndroidModal()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs">
-            Done &amp; Check Devices
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 

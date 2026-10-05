@@ -626,7 +626,7 @@ function renderCurrentTab() {
       renderSmsCampaignPage(container);
       break;
     case 'sms-devices':
-      renderSmsDevicesPage(container);
+      renderSmsDirectPage(container);
       break;
     case 'sms-wallet':
       renderSmsWalletPage(container);
@@ -1449,7 +1449,6 @@ async function loadSmsDirectRecentLogs() {
 async function renderSmsDirectPage(container) {
   await ensureSmsStateLoaded();
   const wallet = state.smsWallet || { sms_balance: 0, sms_credits: 0, rate_per_sms: 0.35 };
-  const deviceCount = (state.smsDevices || []).length;
 
   container.innerHTML = `
     <div class="space-y-6">
@@ -1468,9 +1467,9 @@ async function renderSmsDirectPage(container) {
             <i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-600"></i>
             <span>Wallet: ৳${parseFloat(wallet.sms_balance || 0).toFixed(2)}</span>
           </button>
-          <button onclick="switchTab('sms-devices')" class="px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition">
-            <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emerald-600"></i>
-            <span>Nodes: ${deviceCount} Active</span>
+          <button onclick="switchTab('sms-logs')" class="px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="list-filter" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>SMS Logs</span>
           </button>
         </div>
       </div>
@@ -1490,7 +1489,7 @@ async function renderSmsDirectPage(container) {
               </li>
               <li class="flex items-start gap-2">
                 <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
-                <span><strong>Android SIM Route:</strong> 100% Free dispatch through your paired phone's unlimited local SIM bundle.</span>
+                <span><strong>Dedicated Sender ID:</strong> If assigned a dedicated Sender ID by admin, dispatch directly through your assigned route.</span>
               </li>
               <li class="flex items-start gap-2">
                 <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
@@ -1961,6 +1960,7 @@ async function setSmsSubTab(subTab) {
 function openSmsRechargeModal() {
   const modal = document.getElementById('modal-sms-recharge');
   if (modal) modal.classList.remove('hidden');
+  updateSmsModalPayInfo('bkash');
 }
 
 function closeSmsRechargeModal() {
@@ -2262,13 +2262,13 @@ function renderSmsDirectSubTab(container) {
   let deviceOptions = '';
   if (devices.length > 0) {
     deviceOptions = `
-      <optgroup label="My Android Phone SIMs (Free Dispatch)">
+      <optgroup label="Dedicated Assigned Sender IDs">
         ${devices.map(dev => {
-          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} [${dev.sim1_operator || 'SIM 1'}]` : (dev.sim1_operator || 'Ready');
-          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} [${dev.sim2_operator || 'SIM 2'}]` : (dev.sim2_operator || 'Ready');
+          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} (${dev.sim1_operator || 'SIM 1'})` : (dev.sim1_operator || 'Ready');
+          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} (${dev.sim2_operator || 'SIM 2'})` : (dev.sim2_operator || 'Ready');
           return `
-            <option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)} [Free]</option>
-            <option value="android_sim_${dev.id}_2" ${dev.default_sim_slot === 2 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)} [Free]</option>
+            <option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)}</option>
+            <option value="android_sim_${dev.id}_2" ${dev.default_sim_slot === 2 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)}</option>
           `;
         }).join('')}
       </optgroup>
@@ -2469,13 +2469,13 @@ function renderSmsBroadcastSubTab(container) {
   let deviceOptions = '';
   if (devices.length > 0) {
     deviceOptions = `
-      <optgroup label="My Android Phone SIMs (Free)">
+      <optgroup label="Dedicated Assigned Sender IDs">
         ${devices.map(dev => {
-          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} [${dev.sim1_operator || 'SIM 1'}]` : (dev.sim1_operator || 'SIM 1');
-          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} [${dev.sim2_operator || 'SIM 2'}]` : (dev.sim2_operator || 'SIM 2');
+          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} (${dev.sim1_operator || 'SIM 1'})` : (dev.sim1_operator || 'SIM 1');
+          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} (${dev.sim2_operator || 'SIM 2'})` : (dev.sim2_operator || 'SIM 2');
           return `
-            <option value="android_sim_${dev.id}_1">${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)} [Free]</option>
-            <option value="android_sim_${dev.id}_2">${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)} [Free]</option>
+            <option value="android_sim_${dev.id}_1">${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)}</option>
+            <option value="android_sim_${dev.id}_2">${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)}</option>
           `;
         }).join('')}
       </optgroup>

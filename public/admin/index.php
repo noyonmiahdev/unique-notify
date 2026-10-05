@@ -583,10 +583,16 @@
             <h2 class="text-lg font-bold text-slate-900">Android Mobile Nodes &amp; Sender IDs</h2>
             <p class="text-xs text-slate-500">Configure Sender ID names for SIM 1 &amp; SIM 2, and assign devices as Shared Platform Pool or Dedicated to a client.</p>
           </div>
-          <button onclick="loadAdminSmsDevices()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-            <span>Refresh Devices</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="loadAdminSmsDevices()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Refresh Devices</span>
+            </button>
+            <button onclick="openAdminPairAndroidModal()" class="btn-primary flex items-center gap-1.5">
+              <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+              <span>Pair New Android Phone</span>
+            </button>
+          </div>
         </div>
 
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
@@ -1123,6 +1129,58 @@
         <button type="submit" class="btn-primary"><i data-lucide="check" class="w-3.5 h-3.5"></i>Save Configuration</button>
       </div>
     </form>
+  </div>
+<!-- ─── MODAL: PAIR ANDROID SMS NODE (ADMIN ONLY) ─── -->
+<div id="modalAdminPairAndroid" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="smartphone" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm">Pair Android Gateway Phone</h3>
+          <p class="text-xs text-slate-500">Connect platform dispatch hardware</p>
+        </div>
+      </div>
+      <button onclick="closeAdminPairAndroidModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <div class="p-6 space-y-5 text-xs">
+      <div class="text-center space-y-2">
+        <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Your Pairing Code</span>
+        <div class="p-4 bg-slate-50 border-2 border-dashed border-emerald-500 rounded-xl flex items-center justify-center gap-3">
+          <span id="admin-pairing-code-display" class="font-mono text-3xl font-extrabold text-emerald-700 tracking-widest">------</span>
+          <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('admin-pairing-code-display').innerText); showToast('Pairing code copied');" class="p-2 border border-slate-200 rounded-lg hover:bg-white text-slate-600" title="Copy Code">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400">Valid for 10 minutes. Phone will automatically link to platform queue.</p>
+      </div>
+
+      <div class="space-y-3 pt-2 border-t border-slate-100">
+        <div class="font-bold text-slate-800 text-xs">3 Steps to Connect as Platform Gateway:</div>
+        <div class="space-y-2 text-slate-600">
+          <div class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">1</span>
+            <div>Install the <strong>Unique-Notify Gateway APK</strong> on the Android phone.</div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">2</span>
+            <div>Open app, verify server URL (<code class="font-mono text-slate-700">https://uniquenotify.itstarlab.com</code>) and enter the 6-character pairing code.</div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">3</span>
+            <div>Grant SMS/Phone permissions, enable <strong>SMS Dispatch Worker</strong> switch, and tap <strong>Battery Exemption</strong>.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end">
+        <button type="button" onclick="closeAdminPairAndroidModal()" class="btn-primary">Done &amp; Refresh Devices</button>
+      </div>
+    </div>
   </div>
 </div>
 
