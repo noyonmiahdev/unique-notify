@@ -118,7 +118,20 @@ class SmsQueueEngine {
       success: true,
       message: 'Android SMS Gateway paired successfully.',
       deviceToken: device.device_token,
-      device: updated
+      device_token: device.device_token,
+      deviceId: String(device.id),
+      id: String(device.id),
+      device: updated,
+      data: {
+        id: String(updated.id),
+        deviceId: String(updated.id),
+        device_id: String(updated.id),
+        device_token: device.device_token,
+        deviceToken: device.device_token,
+        device_name: updated.device_name,
+        phone_number: updated.phone_number,
+        status: updated.status
+      }
     };
   }
 
