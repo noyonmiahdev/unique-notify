@@ -117,28 +117,34 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Helper to explicitly serve HTML with proper Content-Type
+const serveHtml = (res, filePath) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.sendFile(filePath);
+};
+
 // Dedicated Public Documentation Portal
 app.use('/docs', (req, res) => {
-  const phpPath = path.join(__dirname, 'public', 'docs', 'index.php');
   const htmlPath = path.join(__dirname, 'public', 'docs', 'index.html');
-  if (fs.existsSync(phpPath)) return res.sendFile(phpPath);
-  res.sendFile(htmlPath);
+  const phpPath = path.join(__dirname, 'public', 'docs', 'index.php');
+  if (fs.existsSync(htmlPath)) return serveHtml(res, htmlPath);
+  serveHtml(res, phpPath);
 });
 
 // Dedicated Separate Super Admin Portal
 app.use('/admin', (req, res) => {
-  const phpPath = path.join(__dirname, 'public', 'admin', 'index.php');
   const htmlPath = path.join(__dirname, 'public', 'admin', 'index.html');
-  if (fs.existsSync(phpPath)) return res.sendFile(phpPath);
-  res.sendFile(htmlPath);
+  const phpPath = path.join(__dirname, 'public', 'admin', 'index.php');
+  if (fs.existsSync(htmlPath)) return serveHtml(res, htmlPath);
+  serveHtml(res, phpPath);
 });
 
 // Dedicated Client User Dashboard & Login routes
 app.get(['/login', '/register', '/dashboard', '/app'], (req, res) => {
-  const phpPath = path.join(__dirname, 'public', 'index.php');
   const htmlPath = path.join(__dirname, 'public', 'index.html');
-  if (fs.existsSync(phpPath)) return res.sendFile(phpPath);
-  res.sendFile(htmlPath);
+  const phpPath = path.join(__dirname, 'public', 'index.php');
+  if (fs.existsSync(htmlPath)) return serveHtml(res, htmlPath);
+  serveHtml(res, phpPath);
 });
 
 // Catch-all fallback route to serve Single Page Application
@@ -147,8 +153,10 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, message: 'API Route Not Found' });
   }
+  const htmlPath = path.join(__dirname, 'public', 'index.html');
   const phpPath = path.join(__dirname, 'public', 'index.php');
-  res.sendFile(phpPath);
+  if (fs.existsSync(htmlPath)) return serveHtml(res, htmlPath);
+  serveHtml(res, phpPath);
 });
 
 // Error handling middleware
