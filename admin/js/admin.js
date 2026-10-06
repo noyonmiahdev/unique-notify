@@ -3,6 +3,19 @@
  * Complete rewrite with sidebar navigation, user detail modal tabs, anti-ban control.
  */
 
+// Universal API Base URL Resolution (Works seamlessly on Apache / XAMPP subdirectories and direct Node.js ports)
+const API_BASE = (window.location.port === '3000' || window.location.port === '3001')
+  ? ''
+  : (window.location.protocol + '//' + window.location.hostname + ':3000');
+
+const _nativeFetch = window.fetch;
+window.fetch = function(url, options) {
+  if (typeof url === 'string' && url.startsWith('/api/')) {
+    url = API_BASE + url;
+  }
+  return _nativeFetch.call(this, url, options);
+};
+
 const TOKEN_KEY = 'un_admin_token';
 let currentAdmin = null;
 let activeUserId = null;

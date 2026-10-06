@@ -3,6 +3,19 @@
  * Handles Public Landing Page, Multi-User Auth, Subscription Plans, Payment Gateway & Dashboard
  */
 
+// Universal API Base URL Resolution (Works seamlessly on Apache / XAMPP subdirectories and direct Node.js ports)
+const API_BASE = (window.location.port === '3000' || window.location.port === '3001')
+  ? ''
+  : (window.location.protocol + '//' + window.location.hostname + ':3000');
+
+const _nativeFetch = window.fetch;
+window.fetch = function(url, options) {
+  if (typeof url === 'string' && url.startsWith('/api/')) {
+    url = API_BASE + url;
+  }
+  return _nativeFetch.call(this, url, options);
+};
+
 // Application State
 const state = {
   viewMode: 'landing', // 'landing' or 'dashboard'
@@ -37,7 +50,11 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 function initSocket() {
   try {
-    state.socket = io();
+    if (typeof io !== 'function') return;
+    const socketTarget = (window.location.port === '3000' || window.location.port === '3001')
+      ? undefined
+      : (window.location.protocol + '//' + window.location.hostname + ':3000');
+    state.socket = io(socketTarget);
 
     state.socket.on('session_status', (data) => {
       state.qrStatus = data.status || 'DISCONNECTED';

@@ -6,7 +6,7 @@
   <title>Unique-Notify - WhatsApp Multi-Gateway & Notification SaaS</title>
   
   <!-- Local Static Tailwind CSS (Offline Ready) -->
-  <link rel="stylesheet" href="/css/tailwind.min.css">
+  <link rel="stylesheet" href="css/tailwind.min.css">
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -36,10 +36,11 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   
   <!-- Socket.io -->
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>if(typeof io==='undefined'){document.write('<script src="socket.io/socket.io.js"><\/script>');}</script>
 
   <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-['Inter'] antialiased selection:bg-emerald-500 selection:text-white">
 
@@ -69,7 +70,7 @@
           <a href="#features" class="hover:text-slate-900 transition-colors">Features</a>
           <a href="#gateways" class="hover:text-slate-900 transition-colors">Dual Gateways</a>
           <a href="#pricing" class="hover:text-slate-900 transition-colors">Pricing Plans</a>
-          <a href="/docs" class="text-emerald-700 font-semibold hover:text-emerald-800 transition-colors flex items-center gap-1">
+          <a href="docs" class="text-emerald-700 font-semibold hover:text-emerald-800 transition-colors flex items-center gap-1">
             <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
             <span>API Docs</span>
           </a>
@@ -80,7 +81,7 @@
         </nav>
 
         <div class="flex items-center gap-2.5">
-          <a href="/admin" title="Admin Access" class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
+          <a href="admin" title="Admin Access" class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
             <i data-lucide="shield" class="w-4 h-4"></i>
           </a>
           <button onclick="openAuthModal('login')" class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors">
@@ -295,7 +296,7 @@
             <button type="button" onclick="fillTestAccount('user@demo.com', 'user123')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-medium">
               Demo Client (Auto Fill)
             </button>
-            <a href="/admin" class="text-[10px] text-emerald-700 hover:underline flex items-center gap-1 font-medium">
+            <a href="admin" class="text-[10px] text-emerald-700 hover:underline flex items-center gap-1 font-medium">
               <i data-lucide="shield" class="w-3 h-3"></i> Admin Portal
             </a>
           </div>
@@ -780,6 +781,6 @@
   </div>
 
   <!-- Scripts -->
-  <script src="/js/app.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
