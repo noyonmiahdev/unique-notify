@@ -1,7 +1,19 @@
+<?php
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$scriptDir  = rtrim(dirname($scriptName), '/');
+if (preg_match('#/(admin|docs|public)$#i', $scriptDir)) {
+    $projectBase = dirname($scriptDir);
+} else {
+    $projectBase = $scriptDir;
+}
+$projectBase = rtrim(str_replace('\\', '/', $projectBase), '/') . '/';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <base href="<?= htmlspecialchars($projectBase, ENT_QUOTES, 'UTF-8') ?>">
+  <script>window.APP_ROOT = "<?= htmlspecialchars($projectBase, ENT_QUOTES, 'UTF-8') ?>";</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Unique-Notify - WhatsApp Multi-Gateway & Notification SaaS</title>
   
@@ -70,7 +82,7 @@
           <a href="#features" class="hover:text-slate-900 transition-colors">Features</a>
           <a href="#gateways" class="hover:text-slate-900 transition-colors">Dual Gateways</a>
           <a href="#pricing" class="hover:text-slate-900 transition-colors">Pricing Plans</a>
-          <a href="docs" class="text-emerald-700 font-semibold hover:text-emerald-800 transition-colors flex items-center gap-1">
+          <a href="docs/" class="text-emerald-700 font-semibold hover:text-emerald-800 transition-colors flex items-center gap-1">
             <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
             <span>API Docs</span>
           </a>
@@ -81,7 +93,7 @@
         </nav>
 
         <div class="flex items-center gap-2.5">
-          <a href="admin" title="Admin Access" class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
+          <a href="admin/" title="Admin Access" class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
             <i data-lucide="shield" class="w-4 h-4"></i>
           </a>
           <button onclick="openAuthModal('login')" class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors">

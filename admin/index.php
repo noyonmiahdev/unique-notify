@@ -3,15 +3,25 @@
  * Super Admin Console - PHP Native Wrapper
  * Unique-Notify WhatsApp Multi-Gateway SaaS Platform
  */
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$scriptDir  = rtrim(dirname($scriptName), '/');
+if (preg_match('#/(admin|docs|public)$#i', $scriptDir)) {
+    $projectBase = dirname($scriptDir);
+} else {
+    $projectBase = $scriptDir;
+}
+$projectBase = rtrim(str_replace('\\', '/', $projectBase), '/') . '/';
 ?>
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8">
+  <base href="<?= htmlspecialchars($projectBase, ENT_QUOTES, 'UTF-8') ?>">
+  <script>window.APP_ROOT = "<?= htmlspecialchars($projectBase, ENT_QUOTES, 'UTF-8') ?>";</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Unique-Notify — Super Admin Console</title>
   <!-- Local Static Tailwind CSS (Zero Dependency / Offline Ready) -->
-  <link rel="stylesheet" href="../css/tailwind.min.css">
+  <link rel="stylesheet" href="css/tailwind.min.css">
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -32,7 +42,7 @@
     }
   </script>
   <!-- Admin Custom Styling -->
-  <link rel="stylesheet" href="../css/admin.css">
+  <link rel="stylesheet" href="css/admin.css">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Google Fonts: Inter & JetBrains Mono -->
@@ -92,11 +102,11 @@
 
     <!-- Footer Links -->
     <div class="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-      <a href="../" class="hover:text-slate-800 transition flex items-center gap-1">
+      <a href="./" class="hover:text-slate-800 transition flex items-center gap-1">
         <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
         <span>Main Site</span>
       </a>
-      <a href="../docs" class="hover:text-slate-800 transition flex items-center gap-1">
+      <a href="docs/" class="hover:text-slate-800 transition flex items-center gap-1">
         <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
         <span>Public Docs</span>
       </a>
@@ -206,11 +216,11 @@
 
     <!-- Sidebar Footer -->
     <div class="p-3 border-t border-slate-100 bg-slate-50/50 space-y-1">
-      <a href="../docs" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-white transition">
+      <a href="docs/" target="_blank" class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-white transition">
         <i data-lucide="book-open" class="w-3.5 h-3.5 text-slate-500"></i>
         <span>Developer Docs</span>
       </a>
-      <a href="../" class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-white transition">
+      <a href="./" class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-white transition">
         <i data-lucide="home" class="w-3.5 h-3.5 text-slate-500"></i>
         <span>View Main Site</span>
       </a>
@@ -1206,6 +1216,6 @@
 <!-- Toast Container -->
 <div id="toastZone" class="fixed top-5 right-5 z-[60] space-y-2 pointer-events-none"></div>
 
-<script src="js/admin.js"></script>
+<script src="admin/js/admin.js"></script>
 </body>
 </html>

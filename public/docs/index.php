@@ -3,15 +3,25 @@
  * Developer Documentation Portal - PHP Native Wrapper
  * Unique-Notify WhatsApp & Cellular SMS Multi-Gateway SaaS Platform
  */
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$scriptDir  = rtrim(dirname($scriptName), '/');
+if (preg_match('#/(admin|docs|public)$#i', $scriptDir)) {
+    $projectBase = dirname($scriptDir);
+} else {
+    $projectBase = $scriptDir;
+}
+$projectBase = rtrim(str_replace('\\', '/', $projectBase), '/') . '/';
 ?>
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8">
+  <base href="<?= htmlspecialchars($projectBase, ENT_QUOTES, 'UTF-8') ?>">
+  <script>window.APP_ROOT = "<?= htmlspecialchars($projectBase, ENT_QUOTES, 'UTF-8') ?>";</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>API Documentation - Unique-Notify Developer Portal</title>
   <!-- Local Static Tailwind CSS (Offline Ready) -->
-  <link rel="stylesheet" href="../css/tailwind.min.css">
+  <link rel="stylesheet" href="css/tailwind.min.css">
   <!-- Tailwind CSS CDN Fallback -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
@@ -62,7 +72,7 @@
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <a href="../" class="flex items-center space-x-3">
+        <a href="./" class="flex items-center space-x-3">
           <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-sm font-bold">
             UN
           </div>
@@ -77,15 +87,15 @@
       </div>
 
       <div class="flex items-center space-x-4">
-        <a href="../" class="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
+        <a href="./" class="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
           <i data-lucide="home" class="w-4 h-4"></i>
           <span>Main Site</span>
         </a>
-        <a href="../admin" class="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
+        <a href="admin/" class="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
           <i data-lucide="shield" class="w-4 h-4"></i>
           <span>Admin Portal</span>
         </a>
-        <a href="../" class="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium shadow-sm transition">
+        <a href="./" class="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium shadow-sm transition">
           <i data-lucide="key" class="w-4 h-4"></i>
           <span>Get API Key</span>
         </a>
@@ -612,9 +622,9 @@ print(response.json())</code></pre>
         <span>&copy; 2026 IT Star Lab. All rights reserved.</span>
       </div>
       <div class="flex items-center space-x-6">
-        <a href="../" class="hover:text-slate-800 transition">Landing Page</a>
-        <a href="../" class="hover:text-slate-800 transition">Client Portal</a>
-        <a href="../admin" class="hover:text-slate-800 transition">Admin Portal</a>
+        <a href="./" class="hover:text-slate-800 transition">Landing Page</a>
+        <a href="./" class="hover:text-slate-800 transition">Client Portal</a>
+        <a href="admin/" class="hover:text-slate-800 transition">Admin Portal</a>
       </div>
     </div>
   </footer>
