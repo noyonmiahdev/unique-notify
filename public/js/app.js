@@ -3085,11 +3085,11 @@ async function fetchSmsLogsAndRenderTable(statusFilter = 'all') {
         </thead>
         <tbody class="divide-y divide-slate-100 font-medium">
           ${logs.length > 0 ? logs.map(log => {
-            const gwLabel = log.gateway_type === 'android_sim' ? `Android (SIM ${log.sim_slot || 1})` : log.gateway_type.toUpperCase();
-            const statusClass = log.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-              log.status === 'sent' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-              log.status === 'queued' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-              log.status === 'sending' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+            const statusUpper = (log.status || '').toUpperCase();
+            const statusClass = statusUpper === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+              statusUpper === 'SENT' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+              statusUpper === 'QUEUED' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+              statusUpper === 'PROCESSING' ? 'bg-purple-50 text-purple-700 border-purple-200' :
               'bg-rose-50 text-rose-700 border-rose-200';
 
             return `
@@ -3101,12 +3101,16 @@ async function fetchSmsLogsAndRenderTable(statusFilter = 'all') {
                 </td>
                 <td class="py-2.5 px-4 max-w-xs truncate text-slate-700" title="${escapeHtml(log.message)}">${escapeHtml(log.message)}</td>
                 <td class="py-2.5 px-4">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${statusClass}">${log.status}</span>
-                  ${log.error_reason ? `<div class="text-[10px] text-rose-600 mt-0.5 font-normal truncate max-w-[150px]" title="${escapeHtml(log.error_reason)}">${escapeHtml(log.error_reason)}</div>` : ''}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${statusClass}">${statusUpper}</span>
+                  ${log.error_reason ? `
+                    <div class="mt-1 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded p-1.5 leading-tight max-w-xs" title="${escapeHtml(log.error_reason)}">
+                      <strong>Reason:</strong> ${escapeHtml(log.error_reason)}
+                    </div>
+                  ` : ''}
                 </td>
                 <td class="py-2.5 px-4 text-slate-400 font-mono text-[11px]">${formatDate(log.created_at)}</td>
                 <td class="py-2.5 px-4 text-right">
-                  ${log.status === 'failed' ? `
+                  ${statusUpper === 'FAILED' ? `
                     <button onclick="handleRetrySmsJob('${log.id}')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold">Retry</button>
                   ` : `
                     <span class="text-slate-400 text-xs">-</span>
