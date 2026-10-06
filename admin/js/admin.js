@@ -296,7 +296,9 @@ async function impersonateUser(userId) {
     if (d.success && d.token) {
       localStorage.setItem('un_user_token', d.token);
       localStorage.setItem('un_user_data', JSON.stringify(d.user));
-      window.open('/?token=' + encodeURIComponent(d.token), '_blank');
+      const targetBase = window.APP_ROOT || (window.location.pathname.replace(/\/admin(\/.*)?$/i, '/')) || './';
+      const clientUrl = (targetBase.endsWith('/') ? targetBase : targetBase + '/') + '?token=' + encodeURIComponent(d.token);
+      window.open(clientUrl, '_blank');
       showToast('Opened client portal as ' + (d.user.name || d.user.email), 'success');
     } else {
       showToast(d.message || 'Failed to access user account.', 'error');
