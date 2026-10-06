@@ -53,6 +53,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   checkAuthSession();
 });
 
+window.addEventListener('hashchange', () => {
+  if (state.viewMode === 'dashboard') {
+    const hashTab = window.location.hash ? window.location.hash.replace('#', '').trim() : '';
+    if (hashTab && hashTab !== state.currentTab) {
+      switchTab(hashTab);
+    }
+  }
+});
+
 /**
  * Socket.io Real-time WebSocket
  */
@@ -198,7 +207,9 @@ function showDashboardView() {
     adminNav.classList.add('hidden');
   }
 
-  switchTab('overview');
+  const urlHash = window.location.hash ? window.location.hash.replace('#', '').trim() : '';
+  const savedTab = urlHash || localStorage.getItem('un_active_tab') || 'overview';
+  switchTab(savedTab);
 }
 
 /**
@@ -500,7 +511,12 @@ async function handleCheckoutSubmit(e) {
  * Dashboard Tab Router
  */
 function switchTab(tabId) {
+  if (!tabId) tabId = 'overview';
   state.currentTab = tabId;
+  localStorage.setItem('un_active_tab', tabId);
+  if (state.viewMode === 'dashboard' && window.location.hash !== '#' + tabId) {
+    window.location.hash = '#' + tabId;
+  }
   closeMobileMenu();
 
   document.querySelectorAll('.nav-btn').forEach(btn => {

@@ -39,6 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
   checkSession();
 });
 
+window.addEventListener('hashchange', () => {
+  if (currentAdmin && document.getElementById('adminApp') && !document.getElementById('adminApp').classList.contains('hidden')) {
+    const hashPage = window.location.hash ? window.location.hash.replace('#', '').trim() : '';
+    if (hashPage) gotoPage(hashPage);
+  }
+});
+
 function updateClock() {
   const el = document.getElementById('currentTime');
   if (el) el.textContent = new Date().toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
@@ -58,7 +65,9 @@ async function checkSession() {
       const data = await res.json();
       currentAdmin = data.admin;
       showApp();
-      gotoPage('overview');
+      const urlHash = window.location.hash ? window.location.hash.replace('#', '').trim() : '';
+      const targetPage = urlHash || localStorage.getItem('un_admin_active_page') || 'overview';
+      gotoPage(targetPage);
     } else { clearSession(); showAuth(); }
   } catch { clearSession(); showAuth(); }
 }
@@ -160,6 +169,12 @@ const PAGE_META = {
 };
 
 function gotoPage(name) {
+  if (!name) name = 'overview';
+  localStorage.setItem('un_admin_active_page', name);
+  if (window.location.hash !== '#' + name) {
+    window.location.hash = '#' + name;
+  }
+
   // Update nav links for light theme
   document.querySelectorAll('.sidebar-link').forEach(l => {
     l.classList.remove('active', 'text-emerald-700', 'bg-emerald-50', 'font-semibold', 'border-l-2', 'border-emerald-600');
