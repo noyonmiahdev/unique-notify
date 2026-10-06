@@ -6,8 +6,8 @@
 require_once __DIR__ . '/UniqueNotify.php';
 
 // Initialize Client with your Server URL and API Key
-$apiKey = 'un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c';
-$serverUrl = 'http://localhost:3000';
+$apiKey = 'un_live_YOUR_API_KEY';
+$serverUrl = 'https://uniquenotify.itstarlab.com';
 
 $client = new UniqueNotify($apiKey, $serverUrl);
 

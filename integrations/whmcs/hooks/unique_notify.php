@@ -13,8 +13,8 @@ require_once __DIR__ . '/../UniqueNotifyClient.php';
 // ==========================================
 // CONFIGURATION (Update with your values)
 // ==========================================
-$uniqueNotifyUrl = 'http://localhost:3000/api/v1';
-$uniqueNotifyKey = 'un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c';
+$uniqueNotifyUrl = 'https://uniquenotify.itstarlab.com/api/v1';
+$uniqueNotifyKey = 'un_live_YOUR_API_KEY';
 $uniqueNotifyGateway = 'auto'; // 'meta', 'qr', or 'auto'
 
 WHMCS_UniqueNotify::configure($uniqueNotifyUrl, $uniqueNotifyKey, $uniqueNotifyGateway);

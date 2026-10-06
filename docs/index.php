@@ -249,8 +249,8 @@ $projectBase = rtrim(str_replace('\\', '/', $projectBase), '/') . '/';
 
         <div class="bg-slate-900 rounded-xl p-4 overflow-x-auto text-xs text-slate-200 font-mono mb-4">
           <p class="text-slate-400 mb-2">// Supported Authorization Headers</p>
-          <p><span class="text-brand-500">x-api-key</span>: un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c</p>
-          <p><span class="text-brand-500">Authorization</span>: Bearer un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c</p>
+          <p><span class="text-brand-500">x-api-key</span>: un_live_YOUR_API_KEY</p>
+          <p><span class="text-brand-500">Authorization</span>: Bearer un_live_YOUR_API_KEY</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -577,7 +577,7 @@ print(response.json())</code></pre>
         <div class="space-y-4 max-w-2xl">
           <div>
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">API Key</label>
-            <input type="text" id="sandboxApiKey" value="un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c" class="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+            <input type="text" id="sandboxApiKey" placeholder="un_live_..." class="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

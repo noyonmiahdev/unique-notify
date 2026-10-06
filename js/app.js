@@ -21,7 +21,19 @@ window.fetch = function(url, options) {
       url = API_BASE + url;
     }
   }
-  return _nativeFetch.call(this, url, options);
+  // Global 401 interceptor — catch session expiry from any protected API
+  return _nativeFetch.call(this, url, options).then(response => {
+    if (response.status === 401 && state.currentUser && !url.includes('/api/auth/')) {
+      response.clone().json().then(data => {
+        const msg = (data && data.message) || 'Session expired. Please log in again.';
+        if (!window._sessionExpired) {
+          window._sessionExpired = true;
+          handleSessionExpired(msg);
+        }
+      }).catch(() => {});
+    }
+    return response;
+  });
 };
 
 // Application State
@@ -141,6 +153,22 @@ function initSocket() {
 }
 
 /**
+ * Handle expired or invalid session — clears token, shows message, opens login
+ */
+function handleSessionExpired(message) {
+  localStorage.removeItem('un_token');
+  localStorage.removeItem('un_user_token');
+  state.currentUser = null;
+  window._sessionExpired = false; // reset flag for next login
+  showLandingView();
+  // Show toast after brief delay to let the view render
+  setTimeout(() => {
+    showToast(message || 'আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার লগইন করুন।', 'error');
+    setTimeout(() => openAuthModal('login'), 800);
+  }, 200);
+}
+
+/**
  * Auth Session Verifier
  */
 async function checkAuthSession() {
@@ -165,12 +193,21 @@ async function checkAuthSession() {
     const data = await res.json();
     if (data.success && data.user) {
       state.currentUser = data.user;
+      window._sessionExpired = false;
       showDashboardView();
       loadDashboardData();
     } else {
+      // Token exists but is invalid/expired — show message and prompt re-login
+      const hadToken = true;
       localStorage.removeItem('un_token');
       localStorage.removeItem('un_user_token');
       showLandingView();
+      if (hadToken) {
+        setTimeout(() => {
+          showToast('আপনার সেশনের মেয়াদ শেষ হয়েছে। আবার লগইন করুন।', 'error');
+          setTimeout(() => openAuthModal('login'), 800);
+        }, 300);
+      }
     }
   } catch (e) {
     localStorage.removeItem('un_token');
@@ -422,7 +459,9 @@ async function handleAuthRegister(e) {
 
 function handleLogout() {
   localStorage.removeItem('un_token');
+  localStorage.removeItem('un_user_token');
   state.currentUser = null;
+  window._sessionExpired = false;
   showToast('Signed out successfully', 'info');
   showLandingView();
 }
@@ -3831,7 +3870,7 @@ async function loadApiKeys() {
 }
 
 function renderApiDocsTab(container) {
-  const apiKey = 'un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c';
+  const apiKey = (state.currentUser && state.currentUser.api_key) || 'un_live_YOUR_API_KEY';
   const baseUrl = window.location.origin;
 
   container.innerHTML = `

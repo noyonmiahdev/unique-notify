@@ -53,7 +53,7 @@ router.post('/register', userAuthLimiter, async (req, res) => {
     const token = jwt.sign(
       { id: userId, email: cleanEmail, role: 'USER', name },
       secret,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
     return res.status(201).json({
@@ -139,7 +139,7 @@ router.post('/login', userAuthLimiter, async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, name: user.name },
       secret,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
     await logAudit({

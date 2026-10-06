@@ -9,8 +9,8 @@ if (!defined('WHMCS')) {
 
 class WHMCS_UniqueNotify
 {
-    private static string $apiUrl = 'http://localhost:3000/api/v1';
-    private static string $apiKey = 'un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c';
+    private static string $apiUrl = 'https://uniquenotify.itstarlab.com/api/v1';
+    private static string $apiKey = 'un_live_YOUR_API_KEY';
     private static string $gateway = 'auto'; // 'meta', 'qr', or 'auto'
 
     public static function configure(string $apiUrl, string $apiKey, string $gateway = 'auto'): void
