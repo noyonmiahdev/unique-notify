@@ -312,6 +312,19 @@ async function loadUsers() {
   } catch (err) { console.error(err); }
 }
 
+function getAppRoot() {
+  let root = window.APP_ROOT;
+  if (!root || typeof root !== 'string' || root.includes('<?') || root.includes('projectBase')) {
+    const path = window.location.pathname;
+    if (path.includes('/admin')) {
+      root = path.substring(0, path.indexOf('/admin') + 1);
+    } else {
+      root = '/';
+    }
+  }
+  return root.endsWith('/') ? root : root + '/';
+}
+
 async function impersonateUser(userId) {
   if (!confirm('Access client dashboard as this user? A new session will open.')) return;
   try {
@@ -321,8 +334,7 @@ async function impersonateUser(userId) {
       localStorage.setItem('un_user_token', d.token);
       localStorage.setItem('un_user_data', JSON.stringify(d.user));
       
-      const targetBase = window.APP_ROOT || (window.location.pathname.replace(/\/admin(\/.*)?$/i, '/')) || './';
-      const cleanBase = (targetBase.endsWith('/') ? targetBase : targetBase + '/');
+      const cleanBase = getAppRoot();
       const clientUrl = cleanBase + '?token=' + encodeURIComponent(d.token);
       
       const newWin = window.open(clientUrl, '_blank');

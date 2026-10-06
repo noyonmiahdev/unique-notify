@@ -2360,18 +2360,27 @@ function renderSmsDirectSubTab(container) {
   const devices = state.smsDevices || [];
   const rate = parseFloat(wallet.rate_per_sms || 0.35);
 
-  let deviceOptions = '';
-  if (devices.length > 0) {
-    deviceOptions = `
+  let dedicatedOptions = '';
+  const dedicatedItems = [];
+  devices.forEach((dev, idx) => {
+    // Only show dedicated sender ID or assigned route without hardware/SIM operator info
+    if (dev.sim1_sender_id || dev.sim1_phone) {
+      const label = dev.sim1_sender_id ? `Sender ID: ${dev.sim1_sender_id}` : `Sender ID: ${dev.sim1_phone}`;
+      dedicatedItems.push(`<option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>${escapeHtml(label)}</option>`);
+    } else if (dev.is_assigned_dedicated) {
+      dedicatedItems.push(`<option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>Dedicated Sender Route #${idx + 1}</option>`);
+    }
+
+    if (dev.sim2_sender_id || dev.sim2_phone) {
+      const label = dev.sim2_sender_id ? `Sender ID: ${dev.sim2_sender_id}` : `Sender ID: ${dev.sim2_phone}`;
+      dedicatedItems.push(`<option value="android_sim_${dev.id}_2" ${dev.default_sim_slot === 2 ? 'selected' : ''}>${escapeHtml(label)}</option>`);
+    }
+  });
+
+  if (dedicatedItems.length > 0) {
+    dedicatedOptions = `
       <optgroup label="Dedicated Assigned Sender IDs">
-        ${devices.map(dev => {
-          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} (${dev.sim1_operator || 'SIM 1'})` : (dev.sim1_operator || 'Ready');
-          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} (${dev.sim2_operator || 'SIM 2'})` : (dev.sim2_operator || 'Ready');
-          return `
-            <option value="android_sim_${dev.id}_1" ${dev.default_sim_slot === 1 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)}</option>
-            <option value="android_sim_${dev.id}_2" ${dev.default_sim_slot === 2 ? 'selected' : ''}>${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)}</option>
-          `;
-        }).join('')}
+        ${dedicatedItems.join('')}
       </optgroup>
     `;
   }
@@ -2381,7 +2390,7 @@ function renderSmsDirectSubTab(container) {
       <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
         <div>
           <h3 class="font-bold text-sm text-slate-900">Direct Single SMS Dispatcher</h3>
-          <p class="text-xs text-slate-500 mt-0.5">Send a real-time cellular SMS via Platform Cloud Gateway or your Android SIM.</p>
+          <p class="text-xs text-slate-500 mt-0.5">Send real-time notifications via optimal platform delivery or dedicated sender ID.</p>
         </div>
         <div class="text-right">
           <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Wallet Balance</span>
@@ -2397,12 +2406,12 @@ function renderSmsDirectSubTab(container) {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">SMS Dispatch Route</label>
+            <label class="block font-semibold text-slate-700 mb-1">Sender ID / Route</label>
             <select id="direct-sms-gateway" onchange="updateSmsCharCounter()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 focus:border-emerald-600 focus:outline-none">
-              <optgroup label="Platform Gateway (Pay As You Go)">
-                <option value="cloud_gateway" selected>Platform Cloud SMS Gateway (৳${rate.toFixed(2)} / SMS)</option>
+              <optgroup label="Platform Default Route">
+                <option value="cloud_gateway" selected>Default Sender ID (Auto Route) - ৳${rate.toFixed(2)}/SMS</option>
               </optgroup>
-              ${deviceOptions}
+              ${dedicatedOptions}
             </select>
           </div>
 
@@ -2567,18 +2576,26 @@ function renderSmsBroadcastSubTab(container) {
   const devices = state.smsDevices || [];
   const rate = parseFloat(wallet.rate_per_sms || 0.35);
 
-  let deviceOptions = '';
-  if (devices.length > 0) {
-    deviceOptions = `
+  let dedicatedOptions = '';
+  const dedicatedItems = [];
+  devices.forEach((dev, idx) => {
+    if (dev.sim1_sender_id || dev.sim1_phone) {
+      const label = dev.sim1_sender_id ? `Sender ID: ${dev.sim1_sender_id}` : `Sender ID: ${dev.sim1_phone}`;
+      dedicatedItems.push(`<option value="android_sim_${dev.id}_1">${escapeHtml(label)}</option>`);
+    } else if (dev.is_assigned_dedicated) {
+      dedicatedItems.push(`<option value="android_sim_${dev.id}_1">Dedicated Sender Route #${idx + 1}</option>`);
+    }
+
+    if (dev.sim2_sender_id || dev.sim2_phone) {
+      const label = dev.sim2_sender_id ? `Sender ID: ${dev.sim2_sender_id}` : `Sender ID: ${dev.sim2_phone}`;
+      dedicatedItems.push(`<option value="android_sim_${dev.id}_2">${escapeHtml(label)}</option>`);
+    }
+  });
+
+  if (dedicatedItems.length > 0) {
+    dedicatedOptions = `
       <optgroup label="Dedicated Assigned Sender IDs">
-        ${devices.map(dev => {
-          const sim1Label = dev.sim1_sender_id ? `${dev.sim1_sender_id} (${dev.sim1_operator || 'SIM 1'})` : (dev.sim1_operator || 'SIM 1');
-          const sim2Label = dev.sim2_sender_id ? `${dev.sim2_sender_id} (${dev.sim2_operator || 'SIM 2'})` : (dev.sim2_operator || 'SIM 2');
-          return `
-            <option value="android_sim_${dev.id}_1">${escapeHtml(dev.device_name)} - SIM 1: ${escapeHtml(sim1Label)}</option>
-            <option value="android_sim_${dev.id}_2">${escapeHtml(dev.device_name)} - SIM 2: ${escapeHtml(sim2Label)}</option>
-          `;
-        }).join('')}
+        ${dedicatedItems.join('')}
       </optgroup>
     `;
   }
@@ -2597,12 +2614,12 @@ function renderSmsBroadcastSubTab(container) {
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Sending Route</label>
+          <label class="block font-semibold text-slate-700 mb-1">Sender ID / Route</label>
           <select id="sms-camp-gateway" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-slate-900 focus:border-emerald-600 focus:outline-none">
-            <optgroup label="Platform Gateway">
-              <option value="cloud_gateway" selected>Platform Cloud SMS Gateway (৳${rate.toFixed(2)} / SMS)</option>
+            <optgroup label="Platform Default Route">
+              <option value="cloud_gateway" selected>Default Sender ID (Auto Route) - ৳${rate.toFixed(2)}/SMS</option>
             </optgroup>
-            ${deviceOptions}
+            ${dedicatedOptions}
           </select>
         </div>
 

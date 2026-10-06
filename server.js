@@ -78,9 +78,26 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Helper to explicitly serve PHP file as HTML with proper Content-Type & Cache control
-const serveHtml = (res, filePath) => {
+const serveHtml = (res, filePath, req) => {
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    let content = fs.readFileSync(filePath, 'utf8');
+    
+    // Automatically evaluate PHP base detection when served through Node.js
+    const reqPath = req?.originalUrl || req?.url || '/';
+    let baseUri = '/';
+    if (reqPath.includes('/admin')) {
+      baseUri = reqPath.substring(0, reqPath.indexOf('/admin')) + '/';
+      if (baseUri === '') baseUri = '/';
+    } else if (reqPath.includes('/docs')) {
+      baseUri = reqPath.substring(0, reqPath.indexOf('/docs')) + '/';
+      if (baseUri === '') baseUri = '/';
+    }
+    
+    content = content.replace(/<\?php[\s\S]*?\?>/gi, '');
+    content = content.replace(/<\?=\s*htmlspecialchars\(\$projectBase[^)]*\)\s*\?>/gi, baseUri);
+    content = content.replace(/<\?=\s*\$projectBase\s*\?>/gi, baseUri);
+    content = content.replace(/<\?[\s\S]*?\?>/gi, '');
+    
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
@@ -95,17 +112,17 @@ const serveHtml = (res, filePath) => {
 // Root & Direct PHP Routes (Placed before static to guarantee HTML execution)
 app.get(['/', '/index.php'], (req, res) => {
   const phpPath = path.join(__dirname, 'public', 'index.php');
-  serveHtml(res, phpPath);
+  serveHtml(res, phpPath, req);
 });
 
 app.get(['/admin', '/admin/', '/admin/index.php'], (req, res) => {
   const phpPath = path.join(__dirname, 'public', 'admin', 'index.php');
-  serveHtml(res, phpPath);
+  serveHtml(res, phpPath, req);
 });
 
 app.get(['/docs', '/docs/', '/docs/index.php'], (req, res) => {
   const phpPath = path.join(__dirname, 'public', 'docs', 'index.php');
-  serveHtml(res, phpPath);
+  serveHtml(res, phpPath, req);
 });
 
 // Static Assets
@@ -144,7 +161,7 @@ app.get('/health', (req, res) => {
 // Dedicated Client User Dashboard & Login routes
 app.get(['/login', '/register', '/dashboard', '/app'], (req, res) => {
   const phpPath = path.join(__dirname, 'public', 'index.php');
-  serveHtml(res, phpPath);
+  serveHtml(res, phpPath, req);
 });
 
 // Catch-all fallback route to serve Single Page Application
@@ -154,7 +171,7 @@ app.use((req, res, next) => {
     return res.status(404).json({ success: false, message: 'API Route Not Found' });
   }
   const phpPath = path.join(__dirname, 'public', 'index.php');
-  serveHtml(res, phpPath);
+  serveHtml(res, phpPath, req);
 });
 
 // Error handling middleware
