@@ -218,7 +218,7 @@ router.all('/devices/:id/default-sim', flexibleAuth, async (req, res) => {
  * Unified SMS Dispatch API
  */
 router.post('/send', flexibleAuth, async (req, res) => {
-  const { phone, recipient, message, text, simSlot, sim_slot, gateway, gateway_type, deviceId, device_id } = req.body;
+  const { phone, recipient, message, text, sender_id, senderId, simSlot, sim_slot, gateway, gateway_type, deviceId, device_id } = req.body;
   const targetPhone = phone || recipient;
   const content = message || text;
 
@@ -232,6 +232,7 @@ router.post('/send', flexibleAuth, async (req, res) => {
       userId,
       recipient: targetPhone,
       message: content,
+      senderId: sender_id || senderId || null,
       gatewayType: gateway || gateway_type || 'auto',
       simSlot: simSlot || sim_slot || null,
       deviceId: deviceId || device_id || null

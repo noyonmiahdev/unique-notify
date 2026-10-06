@@ -26,9 +26,32 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } }); // 25MB max
 
+const smsQueueEngine = require('../../../services/smsQueueEngine');
+
+/**
+ * @route GET/POST /api/v1/messages/check-number or /verify-number
+ * @desc Verify in real-time whether a recipient phone number exists on WhatsApp
+ */
+router.all(['/check-number', '/verify-number'], async (req, res) => {
+  try {
+    const rawPhone = req.query.phone || req.body.phone || req.query.number || req.body.number;
+    if (!rawPhone) {
+      return res.status(400).json({ success: false, message: 'Phone number is required.' });
+    }
+
+    const check = await qrGateway.checkNumberOnWhatsApp(rawPhone);
+    return res.status(200).json({
+      success: true,
+      ...check
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 /**
  * @route POST /api/v1/messages/send or /api/v1/messages/send-text
- * @desc Unified WhatsApp message dispatch (Auto routes to connected personal WhatsApp or Meta Cloud)
+ * @desc Unified WhatsApp message dispatch with real-time verification and optional SMS fallback
  */
 router.post(['/send', '/send-text', '/'], async (req, res) => {
   try {
@@ -37,6 +60,10 @@ router.post(['/send', '/send-text', '/'], async (req, res) => {
       recipient,
       message,
       text,
+      channel = 'whatsapp',
+      fallback_sms = false,
+      fallback_to_sms = false,
+      sender_id = null,
       media_url,
       mediaUrl,
       media_type,
@@ -60,31 +87,60 @@ router.post(['/send', '/send-text', '/'], async (req, res) => {
       return res.status(400).json({ success: false, message: 'Message text or media_url is required.' });
     }
 
+    const allowSmsFallback = fallback_sms || fallback_to_sms || channel === 'auto' || channel === 'all';
     const chosenGateway = await OtpService.resolveGateway(gateway);
     let result;
 
-    if (mediaSource) {
-      // Send Media
-      if (chosenGateway === 'meta') {
-        result = await MetaGateway.sendMedia(targetPhone, media_type || mediaType, mediaSource, caption || content || '', filename);
+    try {
+      if (mediaSource) {
+        // Send Media
+        if (chosenGateway === 'meta') {
+          result = await MetaGateway.sendMedia(targetPhone, media_type || mediaType, mediaSource, caption || content || '', filename);
+        } else {
+          result = await qrGateway.sendMedia(targetPhone, mediaSource, media_type || mediaType, caption || content || '', filename);
+        }
       } else {
-        result = await qrGateway.sendMedia(targetPhone, mediaSource, media_type || mediaType, caption || content || '', filename);
+        // Send Text
+        if (chosenGateway === 'meta') {
+          result = await MetaGateway.sendText(targetPhone, content);
+        } else {
+          result = await qrGateway.sendText(targetPhone, content, { simulateTyping: simulate_typing && simulateTyping });
+        }
       }
-    } else {
-      // Send Text
-      if (chosenGateway === 'meta') {
-        result = await MetaGateway.sendText(targetPhone, content);
+
+      return res.status(200).json({
+        success: true,
+        channel_used: 'whatsapp',
+        gateway_used: chosenGateway,
+        message: 'WhatsApp message sent successfully',
+        data: result
+      });
+    } catch (waErr) {
+      // If WhatsApp dispatch fails (e.g. not on WhatsApp or disconnected) and SMS fallback is permitted
+      if (allowSmsFallback && content) {
+        try {
+          const userId = req.user?.id || 1;
+          const smsResult = await smsQueueEngine.enqueueSms({
+            userId,
+            recipient: targetPhone,
+            message: content,
+            senderId: sender_id
+          });
+          return res.status(200).json({
+            success: true,
+            channel_used: 'sms',
+            fallback_triggered: true,
+            whatsapp_error: waErr.message,
+            message: `Delivered via SMS Fallback (${waErr.message})`,
+            data: smsResult
+          });
+        } catch (smsErr) {
+          throw new Error(`WhatsApp Failed (${waErr.message}) & SMS Fallback Failed (${smsErr.message})`);
+        }
       } else {
-        result = await qrGateway.sendText(targetPhone, content, { simulateTyping: simulate_typing && simulateTyping });
+        throw waErr;
       }
     }
-
-    return res.status(200).json({
-      success: true,
-      message: 'WhatsApp message sent successfully',
-      gateway_used: chosenGateway,
-      data: result
-    });
   } catch (err) {
     return res.status(400).json({ success: false, message: err.message });
   }

@@ -200,9 +200,9 @@ class SmsQueueEngine {
 
   /**
    * Enqueue a new SMS for delivery with automated SaaS Pay-as-you-go balance verification
-   * Routing is decided centrally by Admin settings and assigned dedicated nodes.
+   * Routing is decided centrally by Admin settings, dedicated nodes, or optional sender_id.
    */
-  async enqueueSms({ userId, recipient, message, gatewayType = 'auto', simSlot = null, deviceId = null }) {
+  async enqueueSms({ userId, recipient, message, senderId = null, gatewayType = 'auto', simSlot = null, deviceId = null }) {
     const cleanPhone = recipient.replace(/[^\d+]/g, '');
     if (!cleanPhone || cleanPhone.length < 8) {
       throw new Error('Invalid recipient phone number.');
@@ -228,29 +228,67 @@ class SmsQueueEngine {
     const currentCredits = parseInt(user.sms_credits || 0, 10);
     const currentBalance = parseFloat(user.sms_balance || 0);
 
-    // 2. Resolve Dispatch Gateway & Node (Decided by Admin / System)
+    // 2. Resolve Dispatch Gateway & Node (Decided by Admin / System / explicit senderId)
     let assignedDevice = null;
     let thirdPartyProvider = null;
     let sharedDevice = null;
+    let resolvedSimSlot = simSlot ? parseInt(simSlot) : null;
+
+    // Check 0: If specific sender_id was requested
+    if (senderId) {
+      const cleanSender = String(senderId).trim();
+      // Check 3rd party gateways with matching sender_id
+      thirdPartyProvider = await db.getOne(
+        'SELECT * FROM sms_gateways WHERE (sender_id = ? OR provider_name = ?) AND is_active = 1 LIMIT 1',
+        [cleanSender, cleanSender]
+      );
+
+      // Check Android SIM nodes with matching sender_id
+      if (!thirdPartyProvider) {
+        const matchedDevSim1 = await db.getOne(
+          'SELECT * FROM sms_devices WHERE (sim1_sender_id = ? OR phone_number = ?) AND (user_id = ? OR assigned_user_id = ? OR is_shared = 1) LIMIT 1',
+          [cleanSender, cleanSender, userId, userId]
+        );
+        if (matchedDevSim1) {
+          assignedDevice = matchedDevSim1;
+          resolvedSimSlot = 1;
+        } else {
+          const matchedDevSim2 = await db.getOne(
+            'SELECT * FROM sms_devices WHERE sim2_sender_id = ? AND (user_id = ? OR assigned_user_id = ? OR is_shared = 1) LIMIT 1',
+            [cleanSender, userId, userId]
+          );
+          if (matchedDevSim2) {
+            assignedDevice = matchedDevSim2;
+            resolvedSimSlot = 2;
+          }
+        }
+      }
+    }
 
     // Check A: Admin assigned dedicated device/SIM for this user
-    assignedDevice = await db.getOne(
-      'SELECT * FROM sms_devices WHERE assigned_user_id = ? AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1',
-      [userId]
-    ) || await db.getOne('SELECT * FROM sms_devices WHERE user_id = ? AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1', [userId]);
+    if (!assignedDevice && !thirdPartyProvider) {
+      assignedDevice = await db.getOne(
+        'SELECT * FROM sms_devices WHERE assigned_user_id = ? AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1',
+        [userId]
+      ) || await db.getOne('SELECT * FROM sms_devices WHERE user_id = ? AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1', [userId]);
 
-    if (!assignedDevice) {
-      assignedDevice = await db.getOne('SELECT * FROM sms_devices WHERE assigned_user_id = ? OR user_id = ? ORDER BY id DESC LIMIT 1', [userId, userId]);
+      if (!assignedDevice) {
+        assignedDevice = await db.getOne('SELECT * FROM sms_devices WHERE assigned_user_id = ? OR user_id = ? ORDER BY id DESC LIMIT 1', [userId, userId]);
+      }
     }
 
     // Check B: Admin Default 3rd Party Gateway (e.g. Greenweb, BulkSMSBD)
-    thirdPartyProvider = await db.getOne('SELECT * FROM sms_gateways WHERE is_default = 1 AND is_active = 1 LIMIT 1')
-      || await db.getOne('SELECT * FROM sms_gateways WHERE is_active = 1 LIMIT 1');
+    if (!assignedDevice && !thirdPartyProvider) {
+      thirdPartyProvider = await db.getOne('SELECT * FROM sms_gateways WHERE is_default = 1 AND is_active = 1 LIMIT 1')
+        || await db.getOne('SELECT * FROM sms_gateways WHERE is_active = 1 LIMIT 1');
+    }
 
     // Check C: Admin Shared Android Gateway Node
-    sharedDevice = await db.getOne(
-      'SELECT * FROM sms_devices WHERE is_shared = 1 AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1'
-    ) || await db.getOne('SELECT * FROM sms_devices WHERE is_shared = 1 ORDER BY id DESC LIMIT 1');
+    if (!assignedDevice && !thirdPartyProvider) {
+      sharedDevice = await db.getOne(
+        'SELECT * FROM sms_devices WHERE is_shared = 1 AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1'
+      ) || await db.getOne('SELECT * FROM sms_devices WHERE is_shared = 1 ORDER BY id DESC LIMIT 1');
+    }
 
     if (!assignedDevice && !thirdPartyProvider && !sharedDevice) {
       throw new Error('No active SMS gateway configured on the platform. Please contact support.');
@@ -290,7 +328,7 @@ class SmsQueueEngine {
     // 4. Execution Option 1: Dedicated / Paired Android Node
     const targetNode = assignedDevice || sharedDevice;
     if (targetNode && (!thirdPartyProvider || assignedDevice)) {
-      const slot = simSlot ? parseInt(simSlot) : (targetNode.default_sim_slot || 1);
+      const slot = resolvedSimSlot || (simSlot ? parseInt(simSlot) : (targetNode.default_sim_slot || 1));
       const qRes = await db.query(
         `INSERT INTO sms_queue (user_id, device_id, gateway_type, sim_slot, recipient, message, status, cost_bdt, sms_parts, charged, created_at, updated_at)
          VALUES (?, ?, 'android_sim', ?, ?, ?, 'PENDING', ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,

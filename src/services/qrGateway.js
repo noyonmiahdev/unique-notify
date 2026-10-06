@@ -263,6 +263,47 @@ class QrGateway {
   }
 
   /**
+   * Real-time WhatsApp number verification
+   * Checks whether the phone number is registered on WhatsApp network
+   * @param {string} rawPhone 
+   * @param {string} sessionId 
+   */
+  async checkNumberOnWhatsApp(rawPhone, sessionId = 'primary_qr_session') {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.status !== 'CONNECTED' || !session.socket) {
+      return { 
+        connected: false, 
+        registered: false,
+        message: 'WhatsApp QR Gateway is offline or not connected. Scan QR in dashboard.' 
+      };
+    }
+
+    const sock = session.socket;
+    const jid = toWhatsAppJid(rawPhone);
+    const cleanPhone = sanitizePhoneNumber(rawPhone);
+
+    try {
+      const results = await sock.onWhatsApp(jid);
+      const isRegistered = results && results.length > 0 && results[0].exists;
+      return {
+        connected: true,
+        registered: !!isRegistered,
+        exists: !!isRegistered,
+        phone: cleanPhone,
+        jid: isRegistered ? results[0].jid : null
+      };
+    } catch (err) {
+      return {
+        connected: true,
+        registered: false,
+        exists: false,
+        phone: cleanPhone,
+        error: err.message
+      };
+    }
+  }
+
+  /**
    * Send text message with human typing presence emulation
    * @param {string} rawPhone 
    * @param {string} text 
@@ -273,6 +314,16 @@ class QrGateway {
     const sock = this.getSocket(sessionId);
     const jid = toWhatsAppJid(rawPhone);
     const cleanPhone = sanitizePhoneNumber(rawPhone);
+
+    // Verify if number exists on WhatsApp
+    try {
+      const results = await sock.onWhatsApp(jid);
+      if (results && results.length > 0 && !results[0].exists) {
+        throw new Error(`Recipient number ${cleanPhone} is not registered on WhatsApp.`);
+      }
+    } catch (waErr) {
+      if (waErr.message.includes('not registered')) throw waErr;
+    }
 
     // Emulate human presence if enabled
     const simulateTyping = options.simulateTyping !== false;
