@@ -632,9 +632,15 @@ print(response.json())</code></pre>
   <script>
     lucide.createIcons();
 
-    const API_BASE = (window.location.port === '3000' || window.location.port === '3001')
-      ? ''
-      : (window.location.protocol + '//' + window.location.hostname + ':3000');
+    function getApiBase() {
+      if (window.API_BASE_URL) return window.API_BASE_URL;
+      const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      if (isLocalhost && window.location.port !== '3000' && window.location.port !== '3001') {
+        return 'http://' + window.location.hostname + ':3000';
+      }
+      return '';
+    }
+    const API_BASE = getApiBase();
 
     async function runSandboxTest() {
       const apiKey = document.getElementById('sandboxApiKey').value.trim();

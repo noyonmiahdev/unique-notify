@@ -3,15 +3,23 @@
  * Complete rewrite with sidebar navigation, user detail modal tabs, anti-ban control.
  */
 
-// Universal API Base URL Resolution (Works seamlessly on Apache / XAMPP subdirectories and direct Node.js ports)
-const API_BASE = (window.location.port === '3000' || window.location.port === '3001')
-  ? ''
-  : (window.location.protocol + '//' + window.location.hostname + ':3000');
+// Universal API Base URL Resolution (Smart detection for Live Server HTTPS/HTTP and Local XAMPP/Node)
+function getApiBase() {
+  if (window.API_BASE_URL) return window.API_BASE_URL;
+  const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  if (isLocalhost && window.location.port !== '3000' && window.location.port !== '3001') {
+    return 'http://' + window.location.hostname + ':3000';
+  }
+  return '';
+}
+const API_BASE = getApiBase();
 
 const _nativeFetch = window.fetch;
 window.fetch = function(url, options) {
   if (typeof url === 'string' && url.startsWith('/api/')) {
-    url = API_BASE + url;
+    if (API_BASE) {
+      url = API_BASE + url;
+    }
   }
   return _nativeFetch.call(this, url, options);
 };
