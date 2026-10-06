@@ -357,26 +357,32 @@ class SmsQueueEngine {
       }
     }
 
-    // 2. Resolve target Android Device (User Phone SIM is free routing)
+    // 2. Resolve target Android Device (User Phone SIM or Admin Assigned Dedicated Node)
     let targetDevice = null;
     if (deviceId) {
-      targetDevice = await db.getOne('SELECT * FROM sms_devices WHERE id = ? AND user_id = ?', [deviceId, userId]);
+      targetDevice = await db.getOne('SELECT * FROM sms_devices WHERE id = ? AND (user_id = ? OR assigned_user_id = ? OR is_shared = 1)', [deviceId, userId, userId]);
     } else {
-      // Pick active online device or most recent
+      // Pick active online device (Paired by user OR dedicated assigned by Admin)
       targetDevice = await db.getOne(
-        'SELECT * FROM sms_devices WHERE user_id = ? AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1',
-        [userId]
+        'SELECT * FROM sms_devices WHERE (user_id = ? OR assigned_user_id = ?) AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1',
+        [userId, userId]
       );
       if (!targetDevice) {
         targetDevice = await db.getOne(
-          'SELECT * FROM sms_devices WHERE user_id = ? ORDER BY id DESC LIMIT 1',
-          [userId]
+          'SELECT * FROM sms_devices WHERE (user_id = ? OR assigned_user_id = ?) ORDER BY id DESC LIMIT 1',
+          [userId, userId]
         );
+      }
+      // If still no personal/assigned device, fallback to Admin shared node if exists
+      if (!targetDevice) {
+        targetDevice = await db.getOne(
+          'SELECT * FROM sms_devices WHERE is_shared = 1 AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1'
+        ) || await db.getOne('SELECT * FROM sms_devices WHERE is_shared = 1 ORDER BY id DESC LIMIT 1');
       }
     }
 
     if (!targetDevice) {
-      throw new Error('No Android SMS Gateway device registered. Please pair your Android phone first in SMS Center.');
+      throw new Error('No Android SMS Gateway device found. Please pair your Android phone in SMS Center or contact admin.');
     }
 
     const slot = parseInt(simSlot) || targetDevice.default_sim_slot || 1;

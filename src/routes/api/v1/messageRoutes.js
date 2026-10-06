@@ -27,30 +27,61 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 25 * 1024 * 1024 } }); // 25MB max
 
 /**
- * @route POST /api/v1/messages/send-text
- * @desc Send text message via preferred gateway
+ * @route POST /api/v1/messages/send or /api/v1/messages/send-text
+ * @desc Unified WhatsApp message dispatch (Auto routes to connected personal WhatsApp or Meta Cloud)
  */
-router.post('/send-text', async (req, res) => {
+router.post(['/send', '/send-text', '/'], async (req, res) => {
   try {
-    const { phone, message, text, gateway = 'auto' } = req.body;
-    const content = message || text;
+    const {
+      phone,
+      recipient,
+      message,
+      text,
+      media_url,
+      mediaUrl,
+      media_type,
+      mediaType = 'image',
+      caption = '',
+      filename = '',
+      gateway = 'auto',
+      simulate_typing = true,
+      simulateTyping = true
+    } = req.body;
 
-    if (!phone || !content) {
-      return res.status(400).json({ success: false, message: 'Phone and message content are required.' });
+    const targetPhone = phone || recipient;
+    const content = message || text;
+    const mediaSource = media_url || mediaUrl;
+
+    if (!targetPhone) {
+      return res.status(400).json({ success: false, message: 'Recipient phone number is required.' });
+    }
+
+    if (!content && !mediaSource) {
+      return res.status(400).json({ success: false, message: 'Message text or media_url is required.' });
     }
 
     const chosenGateway = await OtpService.resolveGateway(gateway);
     let result;
 
-    if (chosenGateway === 'meta') {
-      result = await MetaGateway.sendText(phone, content);
+    if (mediaSource) {
+      // Send Media
+      if (chosenGateway === 'meta') {
+        result = await MetaGateway.sendMedia(targetPhone, media_type || mediaType, mediaSource, caption || content || '', filename);
+      } else {
+        result = await qrGateway.sendMedia(targetPhone, mediaSource, media_type || mediaType, caption || content || '', filename);
+      }
     } else {
-      result = await qrGateway.sendText(phone, content, { simulateTyping: true });
+      // Send Text
+      if (chosenGateway === 'meta') {
+        result = await MetaGateway.sendText(targetPhone, content);
+      } else {
+        result = await qrGateway.sendText(targetPhone, content, { simulateTyping: simulate_typing && simulateTyping });
+      }
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Message sent successfully',
+      message: 'WhatsApp message sent successfully',
       gateway_used: chosenGateway,
       data: result
     });

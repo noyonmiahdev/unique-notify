@@ -1,7 +1,7 @@
 <?php
 /**
  * Developer Documentation Portal - PHP Native Wrapper
- * Unique-Notify WhatsApp Multi-Gateway SaaS Platform
+ * Unique-Notify WhatsApp & Cellular SMS Multi-Gateway SaaS Platform
  */
 ?>
 <!DOCTYPE html>
@@ -12,11 +12,11 @@
   <title>API Documentation - Unique-Notify Developer Portal</title>
   <!-- Local Static Tailwind CSS (Offline Ready) -->
   <link rel="stylesheet" href="/css/tailwind.min.css">
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS CDN Fallback -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Google Fonts: Inter -->
+  <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -51,6 +51,9 @@
       font-weight: 600;
       border-left: 3px solid #059669;
     }
+    html {
+      scroll-behavior: smooth;
+    }
   </style>
 </head>
 <body class="h-full flex flex-col font-sans text-slate-800 antialiased selection:bg-brand-100 selection:text-brand-700">
@@ -60,15 +63,15 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <a href="/" class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-sm">
-            <i data-lucide="send" class="w-5 h-5"></i>
+          <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-sm font-bold">
+            UN
           </div>
           <div>
             <div class="flex items-center space-x-2">
               <span class="text-lg font-bold text-slate-900 tracking-tight">Unique-Notify</span>
-              <span class="px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200">Docs v1.0</span>
+              <span class="px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200">API Docs v1.2</span>
             </div>
-            <p class="text-xs text-slate-500">Developer Documentation & API Reference</p>
+            <p class="text-xs text-slate-500">Universal WhatsApp &amp; Cellular SMS Multi-Gateway API</p>
           </div>
         </a>
       </div>
@@ -105,7 +108,7 @@
             </a>
             <a href="#authentication" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
               <i data-lucide="shield-check" class="w-4 h-4 mr-2.5 text-slate-400"></i>
-              Authentication
+              Security &amp; Auth
             </a>
             <a href="#quickstart" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
               <i data-lucide="zap" class="w-4 h-4 mr-2.5 text-slate-400"></i>
@@ -113,15 +116,19 @@
             </a>
           </nav>
 
-          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-6 mb-3 px-3">API Endpoints</p>
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-6 mb-3 px-3">Core APIs</p>
           <nav class="space-y-1">
-            <a href="#otp-api" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
-              <i data-lucide="lock" class="w-4 h-4 mr-2.5 text-slate-400"></i>
-              OTP Dispatch & Verify
+            <a href="#sms-api" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
+              <i data-lucide="smartphone" class="w-4 h-4 mr-2.5 text-slate-400"></i>
+              SMS Gateway (Auto &amp; Dual-SIM)
             </a>
             <a href="#messages-api" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
               <i data-lucide="message-square" class="w-4 h-4 mr-2.5 text-slate-400"></i>
-              Send Text & Media
+              WhatsApp Personal &amp; Media
+            </a>
+            <a href="#otp-api" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
+              <i data-lucide="lock" class="w-4 h-4 mr-2.5 text-slate-400"></i>
+              OTP Dispatch &amp; Verify
             </a>
             <a href="#templates-api" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
               <i data-lucide="file-code" class="w-4 h-4 mr-2.5 text-slate-400"></i>
@@ -131,25 +138,21 @@
               <i data-lucide="radio" class="w-4 h-4 mr-2.5 text-slate-400"></i>
               Broadcast Campaigns
             </a>
-            <a href="#sms-api" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
-              <i data-lucide="smartphone" class="w-4 h-4 mr-2.5 text-slate-400"></i>
-              SMS Gateway (Dual-SIM &amp; 3rd-Party)
-            </a>
           </nav>
 
-          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-6 mb-3 px-3">Integrations</p>
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-6 mb-3 px-3">Integrations &amp; Safety</p>
           <nav class="space-y-1">
+            <a href="#antiban" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
+              <i data-lucide="shield-alert" class="w-4 h-4 mr-2.5 text-slate-400"></i>
+              Anti-Ban &amp; Spintax
+            </a>
             <a href="#whmcs" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
               <i data-lucide="layers" class="w-4 h-4 mr-2.5 text-slate-400"></i>
               WHMCS Integration
             </a>
             <a href="#php-sdk" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
               <i data-lucide="code" class="w-4 h-4 mr-2.5 text-slate-400"></i>
-              Standalone PHP SDK
-            </a>
-            <a href="#antiban" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
-              <i data-lucide="shield-alert" class="w-4 h-4 mr-2.5 text-slate-400"></i>
-              Anti-Ban & Spintax
+              PHP / Node / Python SDK
             </a>
             <a href="#sandbox" class="flex items-center px-3 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-50 transition">
               <i data-lucide="terminal" class="w-4 h-4 mr-2.5 text-slate-400"></i>
@@ -160,11 +163,11 @@
 
         <div class="bg-gradient-to-br from-brand-50 to-emerald-100/60 rounded-xl border border-brand-200 p-4">
           <div class="flex items-center space-x-2 text-brand-700 font-semibold text-sm mb-1">
-            <i data-lucide="phone-call" class="w-4 h-4"></i>
+            <i data-lucide="help-circle" class="w-4 h-4"></i>
             <span>Need Custom Setup?</span>
           </div>
           <p class="text-xs text-slate-600 leading-relaxed mb-3">
-            Our engineers can integrate Unique-Notify into your custom billing system, CRM, or ERP.
+            Integrate Unique-Notify into your billing systems, CRMs, e-commerce, or mobile apps.
           </p>
           <a href="/login" class="inline-flex items-center text-xs font-semibold text-brand-700 hover:text-brand-800">
             <span>Contact Support</span>
@@ -181,61 +184,79 @@
       <section id="overview" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
         <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
           <i data-lucide="cpu" class="w-4 h-4"></i>
-          <span>Architecture & Capabilities</span>
+          <span>Architecture &amp; Capabilities</span>
         </div>
-        <h1 class="text-2xl font-bold text-slate-900 tracking-tight mb-4">Unique-Notify Developer Documentation</h1>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight mb-4">Unique-Notify API Reference</h1>
         <p class="text-slate-600 leading-relaxed mb-6">
-          Unique-Notify is an enterprise-grade multi-gateway communication engine providing automated OTP delivery, transactional notifications, and marketing broadcasts via WhatsApp. The platform offers a unified REST API across both official Meta Cloud API and Baileys Multi-Device QR Socket gateways.
+          Unique-Notify is a high-speed unified messaging hub that combines <strong>Cellular Android Dual-SIM SMS Gateway</strong>, <strong>WhatsApp Personal QR Socket</strong>, <strong>Official Meta Cloud API</strong>, and <strong>3rd-Party SMS Aggregators</strong> into a single, clean REST API.
         </p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
             <div class="flex items-center space-x-2.5 mb-2 font-semibold text-slate-900">
-              <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                SMS
               </div>
-              <span>Meta WhatsApp Cloud API (Official)</span>
+              <span>Android Dual-SIM Gateway</span>
             </div>
             <p class="text-xs text-slate-600 leading-relaxed">
-              Zero account ban risk. Powered by Meta Graph API v21.0. Ideal for high-volume verified OTPs, template messages, and official business transactions.
+              Dispatch cellular SMS via your own Android phone modem (SIM 1 or SIM 2) with zero sender ID setup required and strict slot routing.
             </p>
           </div>
 
           <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
             <div class="flex items-center space-x-2.5 mb-2 font-semibold text-slate-900">
-              <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                <i data-lucide="qr-code" class="w-4 h-4"></i>
+              <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                WA
               </div>
-              <span>Baileys Multi-Device QR Gateway</span>
+              <span>Personal WhatsApp (QR)</span>
             </div>
             <p class="text-xs text-slate-600 leading-relaxed">
-              Multi-Device persistent socket engine. Allows instant connectivity with existing phone numbers without Meta verification fees. Protected by our smart Anti-Ban engine.
+              Auto-routes to your connected WhatsApp session with human typing simulation, Spintax variation, and polite queue throttling.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+            <div class="flex items-center space-x-2.5 mb-2 font-semibold text-slate-900">
+              <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                API
+              </div>
+              <span>Meta WhatsApp Cloud API</span>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Zero ban risk via Meta Graph API v21.0 for official verified business notifications and high-throughput OTP templates.
             </p>
           </div>
         </div>
       </section>
 
-      <!-- Section: Authentication -->
+      <!-- Section: Authentication & Security -->
       <section id="authentication" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
         <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
-          <i data-lucide="key" class="w-4 h-4"></i>
-          <span>Security & Authorization</span>
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          <span>Security &amp; Authorization</span>
         </div>
-        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">Authentication</h2>
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">Authentication &amp; API Security</h2>
         <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          All API requests to Unique-Notify must include an active API Key. You can pass your key via either the <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">x-api-key</code> HTTP header or the standard <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">Authorization: Bearer</code> header.
+          All API endpoints under <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">/api/v1/</code> are secured using flexible authentication. You can pass your API key via the HTTP header <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">x-api-key</code> or as a standard <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">Authorization: Bearer</code> header.
         </p>
 
         <div class="bg-slate-900 rounded-xl p-4 overflow-x-auto text-xs text-slate-200 font-mono mb-4">
-          <p class="text-slate-400 mb-2">// Recommended Header Formats</p>
+          <p class="text-slate-400 mb-2">// Supported Authorization Headers</p>
           <p><span class="text-brand-500">x-api-key</span>: un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c</p>
           <p><span class="text-brand-500">Authorization</span>: Bearer un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c</p>
         </div>
 
-        <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start space-x-3 text-xs text-amber-800">
-          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"></i>
-          <div>
-            <span class="font-semibold">Security Note:</span> Never commit your API keys to public repositories or client-side code. Store keys in server-side environment variables.
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
+            <p class="font-bold text-slate-900 mb-1">Rate Limiting &amp; Flood Protection</p>
+            <p class="text-slate-600">Standard rate limit is 120 requests/min per API key. Rate limit headers are returned with every response:</p>
+            <p class="font-mono text-slate-500 mt-1">X-RateLimit-Limit: 120<br>X-RateLimit-Remaining: 119</p>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
+            <p class="font-bold text-slate-900 mb-1">IP Whitelisting</p>
+            <p class="text-slate-600">You can restrict each API key to specific server IP addresses from the Client Dashboard &gt; API Keys tab.</p>
           </div>
         </div>
       </section>
@@ -248,111 +269,34 @@
         </div>
         <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">Quick Start (cURL)</h2>
         <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          Send your first automated message in seconds with this minimal cURL request:
+          Dispatch messages in seconds with automated gateway routing:
         </p>
 
-        <div class="bg-slate-900 rounded-xl p-5 overflow-x-auto text-xs text-slate-200 font-mono mb-4">
-          <pre><code>curl -X POST "http://localhost:3000/api/v1/messages/send-text" \
+        <div class="space-y-4">
+          <div>
+            <p class="text-xs font-semibold text-slate-700 mb-1">1. Send Cellular SMS (No Sender ID Required):</p>
+            <div class="bg-slate-900 rounded-xl p-4 overflow-x-auto text-xs text-slate-200 font-mono">
+              <pre><code>curl -X POST "https://uniquenotify.itstarlab.com/api/v1/sms/send" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c" \
+  -H "x-api-key: un_live_YOUR_KEY" \
+  -d '{
+    "phone": "01700000000",
+    "message": "Your verification code is 849201."
+  }'</code></pre>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs font-semibold text-slate-700 mb-1">2. Send Personal WhatsApp Message:</p>
+            <div class="bg-slate-900 rounded-xl p-4 overflow-x-auto text-xs text-slate-200 font-mono">
+              <pre><code>curl -X POST "https://uniquenotify.itstarlab.com/api/v1/messages/send" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: un_live_YOUR_KEY" \
   -d '{
     "phone": "8801700000000",
-    "message": "Hello! Your hosting invoice #10492 has been generated.",
-    "gateway": "meta"
+    "message": "Hello! Your invoice #1042 has been paid."
   }'</code></pre>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-mono">
-          <p class="text-slate-500 font-semibold mb-2">Response (200 OK):</p>
-          <pre class="text-emerald-700"><code>{
-  "success": true,
-  "message": "Message sent successfully",
-  "gateway": "meta",
-  "logId": 482,
-  "metaMessageId": "wamid.HBgM..."
-}</code></pre>
-        </div>
-      </section>
-
-      <!-- Section: OTP API -->
-      <section id="otp-api" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
-        <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
-          <i data-lucide="lock" class="w-4 h-4"></i>
-          <span>High-Speed Authentication</span>
-        </div>
-        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">One-Time Password (OTP) API</h2>
-        <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          Unique-Notify features an automated OTP generator with lifecycle tracking, custom expiration windows, and instant verification endpoints.
-        </p>
-
-        <!-- Dispatch OTP -->
-        <div class="border border-slate-200 rounded-xl p-5 mb-6 bg-slate-50/30">
-          <div class="flex items-center space-x-2.5 mb-3">
-            <span class="px-2.5 py-1 text-xs font-bold rounded bg-emerald-100 text-emerald-800 font-mono">POST</span>
-            <span class="text-sm font-mono font-semibold text-slate-900">/api/v1/otp/send</span>
-          </div>
-          <p class="text-xs text-slate-600 mb-3">Generates a secure numeric OTP, sends it via WhatsApp, and stores the state.</p>
-          
-          <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200 mb-3">
-            <pre><code>{
-  "phone": "8801700000000",
-  "serviceName": "Star Hosting Login",
-  "length": 6,
-  "expiryMinutes": 5,
-  "gateway": "meta"
-}</code></pre>
-          </div>
-        </div>
-
-        <!-- Verify OTP -->
-        <div class="border border-slate-200 rounded-xl p-5 bg-slate-50/30">
-          <div class="flex items-center space-x-2.5 mb-3">
-            <span class="px-2.5 py-1 text-xs font-bold rounded bg-blue-100 text-blue-800 font-mono">POST</span>
-            <span class="text-sm font-mono font-semibold text-slate-900">/api/v1/otp/verify</span>
-          </div>
-          <p class="text-xs text-slate-600 mb-3">Validates the code entered by the user against database records.</p>
-          
-          <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200 mb-3">
-            <pre><code>{
-  "phone": "8801700000000",
-  "otp": "492015"
-}</code></pre>
-          </div>
-
-          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 font-mono text-xs text-emerald-700">
-            <code>{ "success": true, "message": "OTP verified successfully", "phone": "8801700000000" }</code>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section: Messages API -->
-      <section id="messages-api" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
-        <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
-          <i data-lucide="message-square" class="w-4 h-4"></i>
-          <span>Direct Messaging</span>
-        </div>
-        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">Send Text & Media Messages</h2>
-        <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          Send rich text notifications, invoices, PDF receipts, or promotional images with captions.
-        </p>
-
-        <!-- Send Media -->
-        <div class="border border-slate-200 rounded-xl p-5 bg-slate-50/30">
-          <div class="flex items-center space-x-2.5 mb-3">
-            <span class="px-2.5 py-1 text-xs font-bold rounded bg-emerald-100 text-emerald-800 font-mono">POST</span>
-            <span class="text-sm font-mono font-semibold text-slate-900">/api/v1/messages/send-media</span>
-          </div>
-          <p class="text-xs text-slate-600 mb-3">Sends an image or PDF document with an optional text caption.</p>
-
-          <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200">
-            <pre><code>{
-  "phone": "8801700000000",
-  "mediaUrl": "https://example.com/invoices/inv-1042.pdf",
-  "caption": "Your monthly web hosting invoice is attached.",
-  "mediaType": "document",
-  "fileName": "invoice-1042.pdf",
-  "gateway": "meta"
-}</code></pre>
+            </div>
           </div>
         </div>
       </section>
@@ -361,58 +305,182 @@
       <section id="sms-api" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
         <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
           <i data-lucide="smartphone" class="w-4 h-4"></i>
-          <span>Cellular SMS &amp; Aggregators</span>
+          <span>Cellular SMS &amp; Node Hub</span>
         </div>
-        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">SMS Gateway &amp; Android Dual-SIM Routing</h2>
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">SMS Gateway &amp; Android Dual-SIM API</h2>
         <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          Send SMS using your own physical Android smartphone (with Dual-SIM SIM 1 / SIM 2 selection) or via 3rd-party aggregators (Greenweb BD, BulkSMSBD, Custom HTTP Webhook).
+          Send SMS automatically through your paired Android phone or assigned dedicated node without configuring sender IDs.
         </p>
 
-        <!-- Send SMS Endpoint -->
+        <!-- Send SMS -->
         <div class="border border-slate-200 rounded-xl p-5 bg-slate-50/30 mb-6">
           <div class="flex items-center space-x-2.5 mb-3">
             <span class="px-2.5 py-1 text-xs font-bold rounded bg-emerald-100 text-emerald-800 font-mono">POST</span>
             <span class="text-sm font-mono font-semibold text-slate-900">/api/v1/sms/send</span>
           </div>
-          <p class="text-xs text-slate-600 mb-3">Dispatches an SMS to a single recipient through the specified channel or SIM slot.</p>
+          <p class="text-xs text-slate-600 mb-3">Dispatches an SMS to a recipient. If SIM slot is omitted, it automatically uses SIM 1 or your device default.</p>
 
           <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200 mb-3">
             <pre><code>{
-  "recipient": "8801700000000",
-  "message": "Your verification code is 591024. Do not share this OTP with anyone.",
-  "gateway_type": "android_sim", // 'android_sim', 'greenweb', 'bulksmsbd', 'custom_http'
-  "sim_slot": 1 // 1 for SIM Slot 1, 2 for SIM Slot 2
+  "phone": "01700688647",
+  "message": "Welcome to Unique-Notify! Your account is active.",
+  "sim_slot": 1 // Optional: 1 for SIM Slot 1, 2 for SIM Slot 2
 }</code></pre>
           </div>
 
           <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200">
-            <pre><code>// Response
+            <pre><code>// Response (200 OK)
 {
   "success": true,
   "message": "SMS queued for Android SIM gateway dispatch",
-  "data": {
-    "job_id": "4",
-    "status": "queued",
-    "recipient": "8801700000000",
-    "gateway": "android_sim",
-    "sim_slot": 1
-  }
+  "jobId": 12,
+  "recipient": "01700688647",
+  "simSlot": 1,
+  "status": "PENDING"
 }</code></pre>
           </div>
         </div>
 
         <!-- Android Gateway Setup Guide -->
-        <div class="border border-emerald-200 bg-emerald-50/30 rounded-xl p-5">
+        <div class="border border-emerald-200 bg-emerald-50/30 rounded-xl p-5 mb-6">
           <h3 class="font-bold text-sm text-slate-900 mb-2 flex items-center gap-2">
-            <i data-lucide="info" class="w-4 h-4 text-emerald-700"></i>
-            <span>How to Connect Your Android Phone:</span>
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-700"></i>
+            <span>How Android Gateway Auto-Dispatch Works:</span>
           </h3>
           <ol class="text-xs text-slate-700 space-y-2 list-decimal list-inside leading-relaxed">
-            <li>Build and install the APK located in <code class="font-mono font-semibold">/android-gateway</code> onto your Android device.</li>
-            <li>In Unique-Notify Web Dashboard, click <strong>SMS Gateway &gt; Pair Android Device</strong> to get your 6-character code.</li>
-            <li>In the phone app, enter your Server URL and 6-character code, then tap <strong>Pair &amp; Connect Device</strong>.</li>
-            <li>Enable the <strong>SMS Dispatch Worker</strong> switch. Your phone is now an online cellular SMS server.</li>
+            <li>Install the Android Gateway APK on your phone from <code class="font-mono font-semibold">/android-gateway</code>.</li>
+            <li>In Web Dashboard &gt; SMS Gateway &gt; Pair Device, generate a 6-character code.</li>
+            <li>In the phone app, enter Server URL and Pairing Code, then tap <strong>Pair &amp; Connect</strong>.</li>
+            <li>Turn on <strong>SMS Dispatch Worker</strong>. All SMS requests will now route strictly through your phone's cellular modem.</li>
           </ol>
+        </div>
+
+        <!-- Error & Diagnosis Codes -->
+        <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 text-xs">
+          <p class="font-bold text-slate-900 mb-2">SMS Status &amp; Failure Diagnostic Codes:</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-slate-600">
+            <div><code class="text-emerald-700 font-semibold">SENT / DELIVERED</code>: Handed to telecom operator modem.</div>
+            <div><code class="text-rose-700 font-semibold">PERMISSION_DENIED</code>: SEND_SMS blocked in ColorOS/MIUI.</div>
+            <div><code class="text-amber-700 font-semibold">NO_SERVICE</code>: Phone is out of cellular network area.</div>
+            <div><code class="text-amber-700 font-semibold">RADIO_OFF</code>: Airplane mode active or SIM disabled.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Messages API -->
+      <section id="messages-api" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+        <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="message-square" class="w-4 h-4"></i>
+          <span>Personal &amp; Cloud WhatsApp</span>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">WhatsApp Message Dispatch API</h2>
+        <p class="text-slate-600 text-sm leading-relaxed mb-4">
+          Send text and media automatically via your personal connected WhatsApp number without specifying instance IDs.
+        </p>
+
+        <!-- Send Unified Message -->
+        <div class="border border-slate-200 rounded-xl p-5 bg-slate-50/30 mb-6">
+          <div class="flex items-center space-x-2.5 mb-3">
+            <span class="px-2.5 py-1 text-xs font-bold rounded bg-emerald-100 text-emerald-800 font-mono">POST</span>
+            <span class="text-sm font-mono font-semibold text-slate-900">/api/v1/messages/send</span>
+          </div>
+          <p class="text-xs text-slate-600 mb-3">Sends a text or media message through your active WhatsApp session with auto human-like typing simulation.</p>
+
+          <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200 mb-3">
+            <pre><code>{
+  "phone": "8801700000000",
+  "message": "{Hello|Hi|Dear} customer, your hosting account is active.",
+  "media_url": "https://example.com/invoice.pdf", // Optional
+  "caption": "Your payment receipt",               // Optional
+  "media_type": "document"                        // 'image', 'document', 'audio', 'video'
+}</code></pre>
+          </div>
+
+          <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200">
+            <pre><code>// Response (200 OK)
+{
+  "success": true,
+  "message": "WhatsApp message sent successfully",
+  "gateway_used": "qr",
+  "data": {
+    "status": "SENT",
+    "recipient": "8801700000000"
+  }
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: OTP API -->
+      <section id="otp-api" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+        <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+          <span>Multi-Channel Verification</span>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">One-Time Password (OTP) API</h2>
+        <p class="text-slate-600 text-sm leading-relaxed mb-4">
+          Automated OTP generator with lifecycle tracking, custom expiration windows, and instant verification endpoints.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Dispatch OTP -->
+          <div class="border border-slate-200 rounded-xl p-5 bg-slate-50/30">
+            <div class="flex items-center space-x-2.5 mb-2">
+              <span class="px-2.5 py-0.5 text-xs font-bold rounded bg-emerald-100 text-emerald-800 font-mono">POST</span>
+              <span class="text-xs font-mono font-semibold text-slate-900">/api/v1/otp/send</span>
+            </div>
+            <p class="text-xs text-slate-600 mb-3">Generates and sends an OTP code.</p>
+            <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs text-slate-200">
+              <pre><code>{
+  "phone": "8801700000000",
+  "serviceName": "Login Verification",
+  "otpLength": 6,
+  "expiryMinutes": 5
+}</code></pre>
+            </div>
+          </div>
+
+          <!-- Verify OTP -->
+          <div class="border border-slate-200 rounded-xl p-5 bg-slate-50/30">
+            <div class="flex items-center space-x-2.5 mb-2">
+              <span class="px-2.5 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-800 font-mono">POST</span>
+              <span class="text-xs font-mono font-semibold text-slate-900">/api/v1/otp/verify</span>
+            </div>
+            <p class="text-xs text-slate-600 mb-3">Validates the code entered by user.</p>
+            <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs text-slate-200">
+              <pre><code>{
+  "phone": "8801700000000",
+  "otpCode": "591024"
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Anti-Ban & Spintax -->
+      <section id="antiban" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+        <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="shield-alert" class="w-4 h-4"></i>
+          <span>Anti-Ban Heuristics</span>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">Anti-Ban Engine &amp; Spintax Randomization</h2>
+        <p class="text-slate-600 text-sm leading-relaxed mb-4">
+          When sending through personal WhatsApp or Android SMS, Unique-Notify uses advanced safety filters:
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+            <p class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">Dynamic Spintax</p>
+            <p class="text-xs text-slate-600">Replaces words with variations like <code class="font-mono">{Hi|Hello|Dear}</code> so every dispatch has unique phrasing.</p>
+          </div>
+          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+            <p class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">Human Typing Simulation</p>
+            <p class="text-xs text-slate-600">Triggers typing presence before message release to replicate real human engagement.</p>
+          </div>
+          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+            <p class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">Jitter Delay Engine</p>
+            <p class="text-xs text-slate-600">Applies automatic delays between bulk messages to avoid telecom carrier throttling.</p>
+          </div>
         </div>
       </section>
 
@@ -424,116 +492,79 @@
         </div>
         <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">WHMCS Hook Integration Guide</h2>
         <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          Unique-Notify includes a ready-to-use, zero-dependency WHMCS hook file located in <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">integrations/whmcs/hooks/unique_notify.php</code>.
+          Unique-Notify includes a ready-to-use WHMCS hook in <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">integrations/whmcs/hooks/unique_notify.php</code>.
         </p>
 
         <div class="space-y-4 text-sm text-slate-700">
           <div class="flex items-start space-x-3">
             <div class="w-6 h-6 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-xs text-slate-700 flex-shrink-0">1</div>
             <div>
-              <p class="font-semibold text-slate-900">Copy the Hook File</p>
-              <p class="text-xs text-slate-500">Copy <code class="font-mono">integrations/whmcs/hooks/unique_notify.php</code> to your WHMCS directory: <code class="font-mono">/includes/hooks/unique_notify.php</code>.</p>
+              <p class="font-semibold text-slate-900">Copy Hook File</p>
+              <p class="text-xs text-slate-500">Copy <code class="font-mono">unique_notify.php</code> to <code class="font-mono">/whmcs/includes/hooks/unique_notify.php</code>.</p>
             </div>
           </div>
 
           <div class="flex items-start space-x-3">
             <div class="w-6 h-6 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-xs text-slate-700 flex-shrink-0">2</div>
             <div>
-              <p class="font-semibold text-slate-900">Configure Credentials</p>
-              <p class="text-xs text-slate-500">Open <code class="font-mono">unique_notify.php</code> and set your Unique-Notify endpoint URL and API Key:</p>
+              <p class="font-semibold text-slate-900">Set API URL &amp; API Key</p>
               <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs text-slate-200 mt-2">
-                <pre><code>define('UNIQUE_NOTIFY_API_URL', 'http://your-server:3000/api/v1');
-define('UNIQUE_NOTIFY_API_KEY', 'un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c');
-define('UNIQUE_NOTIFY_GATEWAY', 'meta'); // or 'qr'</code></pre>
+                <pre><code>define('UNIQUE_NOTIFY_API_URL', 'https://uniquenotify.itstarlab.com/api/v1');
+define('UNIQUE_NOTIFY_API_KEY', 'un_live_YOUR_API_KEY');</code></pre>
               </div>
             </div>
           </div>
-
-          <div class="flex items-start space-x-3">
-            <div class="w-6 h-6 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-xs text-slate-700 flex-shrink-0">3</div>
-            <div>
-              <p class="font-semibold text-slate-900">Supported WHMCS Automatic Events</p>
-              <ul class="text-xs text-slate-600 list-disc list-inside space-y-1 mt-1">
-                <li><strong class="text-slate-800">InvoiceCreated:</strong> Instant WhatsApp message with invoice number, due date, and payment URL.</li>
-                <li><strong class="text-slate-800">InvoicePaymentReminder:</strong> First, second, and overdue reminder dispatches.</li>
-                <li><strong class="text-slate-800">InvoicePaid:</strong> Payment confirmation receipt acknowledging invoice clearance.</li>
-                <li><strong class="text-slate-800">TicketOpen & TicketAdminReply:</strong> Instant notification when support staff responds.</li>
-                <li><strong class="text-slate-800">AfterModuleCreate:</strong> Service activation notice (cPanel/VPS ready notification).</li>
-              </ul>
-            </div>
-          </div>
         </div>
       </section>
 
-      <!-- Section: PHP SDK -->
+      <!-- Section: Multi-Language SDKs -->
       <section id="php-sdk" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
         <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
           <i data-lucide="code" class="w-4 h-4"></i>
-          <span>Library Reference</span>
+          <span>Code Snippets</span>
         </div>
-        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">Standalone PHP SDK</h2>
-        <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          For custom PHP web applications, Laravel, or CodeIgniter, use our lightweight SDK from <code class="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs text-slate-800">integrations/php-sdk/UniqueNotify.php</code>:
-        </p>
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">SDK &amp; Integration Examples</h2>
 
-        <div class="bg-slate-900 rounded-xl p-5 overflow-x-auto text-xs text-slate-200 font-mono">
-          <pre><code>require_once __DIR__ . '/integrations/php-sdk/UniqueNotify.php';
-
-use UniqueNotify\UniqueNotify;
-
-$client = new UniqueNotify([
-    'api_url' => 'http://localhost:3000/api/v1',
-    'api_key' => 'un_live_8f3a9b2c1d4e5f6a7b8c9d0e1f2a3b4c',
-    'gateway' => 'meta'
+        <div class="space-y-4">
+          <!-- PHP Native -->
+          <div>
+            <p class="text-xs font-bold text-slate-700 mb-1">PHP (cURL):</p>
+            <div class="bg-slate-900 rounded-xl p-4 overflow-x-auto text-xs text-slate-200 font-mono">
+              <pre><code>$ch = curl_init('https://uniquenotify.itstarlab.com/api/v1/sms/send');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: application/json',
+    'x-api-key: un_live_YOUR_API_KEY'
 ]);
-
-// 1. Send OTP
-$otpResponse = $client->sendOtp('8801700000000', 'Star Hosting Portal');
-
-// 2. Verify OTP
-$verifyResponse = $client->verifyOtp('8801700000000', '123456');
-
-// 3. Send Text Notification
-$client->sendText('8801700000000', 'Your order #5523 has been dispatched.');
-
-// 4. Send Document / Invoice
-$client->sendMedia('8801700000000', 'https://example.com/inv.pdf', 'Monthly Invoice', 'document');</code></pre>
-        </div>
-      </section>
-
-      <!-- Section: Anti-Ban & Spintax -->
-      <section id="antiban" class="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
-        <div class="flex items-center space-x-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
-          <i data-lucide="shield-alert" class="w-4 h-4"></i>
-          <span>WhatsApp Safety</span>
-        </div>
-        <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-3">Anti-Ban Engine & Spintax Guide</h2>
-        <p class="text-slate-600 text-sm leading-relaxed mb-4">
-          When sending through the QR gateway, Unique-Notify automatically implements multiple defensive behaviors to prevent WhatsApp spam flags.
-        </p>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
-            <p class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">Spintax Engine</p>
-            <p class="text-xs text-slate-600">Every message variation is dynamically computed so recipients receive distinct text phrasing.</p>
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    'phone' => '01700000000',
+    'message' => 'Your order #1042 has been shipped.'
+]));
+$response = curl_exec($ch);
+curl_close($ch);
+echo $response;</code></pre>
+            </div>
           </div>
-          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
-            <p class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">Random Jitter Delay</p>
-            <p class="text-xs text-slate-600">Configurable 5 to 15 second intervals between messages to replicate natural human typing habits.</p>
-          </div>
-          <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
-            <p class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">Typing Simulation</p>
-            <p class="text-xs text-slate-600">Dispatches WhatsApp presence "composing..." events before committing outbound payloads.</p>
-          </div>
-        </div>
 
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-mono">
-          <p class="text-slate-500 font-semibold mb-2">Spintax Example:</p>
-          <p class="text-slate-800">{Hello|Dear|Greetings} {name}, your bill of {amount} is {due|ready}.</p>
-          <div class="mt-3 pt-3 border-t border-slate-200 text-slate-600">
-            <p><strong>Outcome 1:</strong> "Hello Alice, your bill of $50 is due."</p>
-            <p><strong>Outcome 2:</strong> "Dear Bob, your bill of $75 is ready."</p>
-            <p><strong>Outcome 3:</strong> "Greetings Charlie, your bill of $30 is due."</p>
+          <!-- Python -->
+          <div>
+            <p class="text-xs font-bold text-slate-700 mb-1">Python (requests):</p>
+            <div class="bg-slate-900 rounded-xl p-4 overflow-x-auto text-xs text-slate-200 font-mono">
+              <pre><code>import requests
+
+url = "https://uniquenotify.itstarlab.com/api/v1/messages/send"
+headers = {
+    "Content-Type": "application/json",
+    "x-api-key": "un_live_YOUR_API_KEY"
+}
+payload = {
+    "phone": "8801700000000",
+    "message": "Hello from Python application!"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())</code></pre>
+            </div>
           </div>
         </div>
       </section>
@@ -546,7 +577,7 @@ $client->sendMedia('8801700000000', 'https://example.com/inv.pdf', 'Monthly Invo
         </div>
         <h2 class="text-xl font-bold text-slate-900 tracking-tight mb-2">Interactive API Console</h2>
         <p class="text-slate-600 text-sm leading-relaxed mb-6">
-          Test live API dispatches directly in your browser without leaving this documentation portal.
+          Test live SMS and WhatsApp dispatches directly from this browser console.
         </p>
 
         <div class="space-y-4 max-w-2xl">
@@ -557,21 +588,21 @@ $client->sendMedia('8801700000000', 'https://example.com/inv.pdf', 'Monthly Invo
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Recipient Phone</label>
-              <input type="text" id="sandboxPhone" placeholder="8801700000000" class="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Channel &amp; Target</label>
+              <select id="sandboxChannel" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+                <option value="sms">Cellular SMS (Android / Cloud)</option>
+                <option value="whatsapp">WhatsApp (Personal QR / Meta)</option>
+              </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Target Gateway</label>
-              <select id="sandboxGateway" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
-                <option value="meta">Meta WhatsApp Cloud API</option>
-                <option value="qr">Baileys QR Gateway</option>
-              </select>
+              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Recipient Phone</label>
+              <input type="text" id="sandboxPhone" placeholder="01700000000 or 8801700000000" class="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
             </div>
           </div>
 
           <div>
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Message Content</label>
-            <textarea id="sandboxMessage" rows="3" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">Hello from Unique-Notify Interactive API Console!</textarea>
+            <textarea id="sandboxMessage" rows="3" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none">Hello from Unique-Notify Live API Console!</textarea>
           </div>
 
           <button type="button" id="sandboxSubmitBtn" onclick="runSandboxTest()" class="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition">
@@ -609,15 +640,15 @@ $client->sendMedia('8801700000000', 'https://example.com/inv.pdf', 'Monthly Invo
 
     async function runSandboxTest() {
       const apiKey = document.getElementById('sandboxApiKey').value.trim();
+      const channel = document.getElementById('sandboxChannel').value;
       const phone = document.getElementById('sandboxPhone').value.trim();
-      const gateway = document.getElementById('sandboxGateway').value;
       const message = document.getElementById('sandboxMessage').value.trim();
       const resArea = document.getElementById('sandboxResponseArea');
       const output = document.getElementById('sandboxOutput');
       const btn = document.getElementById('sandboxSubmitBtn');
 
       if (!phone) {
-        alert('Please enter a recipient phone number with country code (e.g., 8801700000000)');
+        alert('Please enter a recipient phone number (e.g., 01700000000 or 8801700000000)');
         return;
       }
 
@@ -625,13 +656,14 @@ $client->sendMedia('8801700000000', 'https://example.com/inv.pdf', 'Monthly Invo
       btn.innerHTML = '<span class="inline-block animate-spin mr-2">&#9696;</span> Sending Request...';
 
       try {
-        const response = await fetch('/api/v1/messages/send-text', {
+        const endpoint = channel === 'sms' ? '/api/v1/sms/send' : '/api/v1/messages/send';
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': apiKey
           },
-          body: JSON.stringify({ phone, message, gateway })
+          body: JSON.stringify({ phone, message })
         });
 
         const data = await response.json();
