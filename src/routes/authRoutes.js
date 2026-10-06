@@ -172,18 +172,27 @@ router.post('/login', userAuthLimiter, async (req, res) => {
   }
 });
 
+const flexibleAuth = require('../middlewares/flexibleAuth');
+
 /**
  * @route GET /api/auth/me
  * @desc Get current authenticated user profile
  */
-router.get('/me', jwtAuth, async (req, res) => {
+router.get('/me', flexibleAuth, async (req, res) => {
   try {
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: No active user session.' });
+    }
+
     const user = await db.getOne(
-      `SELECT u.id, u.name, u.email, u.phone, u.company, u.role, u.plan_id, u.plan_status, u.credits_remaining, u.credits_used, u.created_at, pl.name as plan_name 
+      `SELECT u.id, u.name, u.email, u.phone, u.company, u.role, u.plan_id, u.plan_status, 
+              u.credits_remaining, u.credits_used, u.sms_balance, u.sms_credits, u.custom_sms_rate, 
+              u.created_at, pl.name as plan_name 
        FROM users u 
        LEFT JOIN plans pl ON u.plan_id = pl.id 
        WHERE u.id = ?`,
-      [req.user.id]
+      [userId]
     );
 
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });

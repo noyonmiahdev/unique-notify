@@ -317,12 +317,20 @@ async function impersonateUser(userId) {
   try {
     const d = await api('/users/' + userId + '/impersonate', { method: 'POST' });
     if (d.success && d.token) {
+      localStorage.setItem('un_token', d.token);
       localStorage.setItem('un_user_token', d.token);
       localStorage.setItem('un_user_data', JSON.stringify(d.user));
+      
       const targetBase = window.APP_ROOT || (window.location.pathname.replace(/\/admin(\/.*)?$/i, '/')) || './';
-      const clientUrl = (targetBase.endsWith('/') ? targetBase : targetBase + '/') + '?token=' + encodeURIComponent(d.token);
-      window.open(clientUrl, '_blank');
-      showToast('Opened client portal as ' + (d.user.name || d.user.email), 'success');
+      const cleanBase = (targetBase.endsWith('/') ? targetBase : targetBase + '/');
+      const clientUrl = cleanBase + '?token=' + encodeURIComponent(d.token);
+      
+      const newWin = window.open(clientUrl, '_blank');
+      if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+        window.location.href = clientUrl;
+      } else {
+        showToast('Opened client portal as ' + (d.user.name || d.user.email), 'success');
+      }
     } else {
       showToast(d.message || 'Failed to access user account.', 'error');
     }

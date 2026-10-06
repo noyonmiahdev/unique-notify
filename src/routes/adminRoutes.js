@@ -187,7 +187,7 @@ router.post('/users/:id/impersonate', adminAuth, async (req, res) => {
     const userToken = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role: 'USER' },
       secret,
-      { expiresIn: '8h' }
+      { expiresIn: '30d' }
     );
 
     await logAudit({
@@ -206,7 +206,9 @@ router.post('/users/:id/impersonate', adminAuth, async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: 'USER'
+        role: user.role || 'USER',
+        plan_id: user.plan_id,
+        plan_status: user.plan_status
       }
     });
   } catch (err) {

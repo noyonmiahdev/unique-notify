@@ -152,6 +152,10 @@ function initSocket() {
   }
 }
 
+function getAuthToken() {
+  return localStorage.getItem('un_token') || localStorage.getItem('un_user_token') || '';
+}
+
 /**
  * Handle expired or invalid session — clears token, shows message, opens login
  */
@@ -173,14 +177,30 @@ function handleSessionExpired(message) {
  */
 async function checkAuthSession() {
   const urlParams = new URLSearchParams(window.location.search);
-  const paramToken = urlParams.get('token') || urlParams.get('impersonate_token');
+  let paramToken = urlParams.get('token') || urlParams.get('impersonate_token');
+  
+  // Also check if token was passed in hash e.g. #sms-wallet?token=...
+  if (!paramToken && window.location.hash) {
+    const hashMatch = window.location.hash.match(/token=([^&]+)/);
+    if (hashMatch) {
+      paramToken = decodeURIComponent(hashMatch[1]);
+    }
+  }
+
   if (paramToken) {
     localStorage.setItem('un_token', paramToken);
     localStorage.setItem('un_user_token', paramToken);
-    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    // Clean URL without losing hash
+    let targetHash = window.location.hash;
+    if (targetHash && targetHash.includes('token=')) {
+      targetHash = targetHash.split('?')[0];
+    }
+    const cleanUrl = window.location.pathname + (targetHash || '');
+    window.history.replaceState({}, document.title, cleanUrl);
   }
 
-  const token = localStorage.getItem('un_token') || localStorage.getItem('un_user_token');
+  const token = getAuthToken();
   if (!token) {
     showLandingView();
     return;
@@ -515,7 +535,7 @@ async function handleCheckoutSubmit(e) {
   btn.innerText = 'Processing...';
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/billing/checkout', {
       method: 'POST',
       headers: {
@@ -924,7 +944,7 @@ function renderOverviewTab(container) {
  * TAB: USER SUBSCRIPTION & BILLING
  */
 async function renderBillingTab(container) {
-  const token = localStorage.getItem('un_token');
+  const token = getAuthToken();
   let subData = null;
 
   try {
@@ -1033,7 +1053,7 @@ async function renderBillingTab(container) {
  * TAB: SUPER ADMIN USERS LIST
  */
 async function renderAdminUsersTab(container) {
-  const token = localStorage.getItem('un_token');
+  const token = getAuthToken();
   let users = [];
 
   try {
@@ -1089,7 +1109,7 @@ async function renderAdminUsersTab(container) {
  * TAB: SUPER ADMIN PAYMENT APPROVALS
  */
 async function renderAdminPaymentsTab(container) {
-  const token = localStorage.getItem('un_token');
+  const token = getAuthToken();
   let payments = [];
 
   try {
@@ -1158,7 +1178,7 @@ async function renderAdminPaymentsTab(container) {
 }
 
 async function handleAdminApprovePayment(id) {
-  const token = localStorage.getItem('un_token');
+  const token = getAuthToken();
   try {
     const res = await fetch(`/api/admin/payments/${id}/approve`, {
       method: 'POST',
@@ -1178,7 +1198,7 @@ async function handleAdminApprovePayment(id) {
 
 async function handleAdminRejectPayment(id) {
   if (!confirm('Reject this payment submission?')) return;
-  const token = localStorage.getItem('un_token');
+  const token = getAuthToken();
   try {
     const res = await fetch(`/api/admin/payments/${id}/reject`, {
       method: 'POST',
@@ -1481,7 +1501,7 @@ function renderDevicesTab(container) {
  */
 async function ensureSmsStateLoaded() {
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const [walletRes, devicesRes] = await Promise.all([
       fetch('/api/v1/sms/wallet', { headers: { 'Authorization': `Bearer ${token}` } }),
       fetch('/api/v1/sms/devices', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -1499,7 +1519,7 @@ async function loadSmsDirectRecentLogs() {
   const box = document.getElementById('sms-direct-recent-logs');
   if (!box) return;
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/logs?limit=5', { headers: { 'Authorization': `Bearer ${token}` } });
     const json = await res.json();
     const logs = json.success ? (json.data || []) : [];
@@ -1747,7 +1767,7 @@ async function renderSmsGatewayTab(container) {
 
   // Fetch wallet & devices info
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const [walletRes, devicesRes] = await Promise.all([
       fetch('/api/v1/sms/wallet', { headers: { 'Authorization': `Bearer ${token}` } }),
       fetch('/api/v1/sms/devices', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -2069,7 +2089,7 @@ async function handleModalSmsRechargeSubmit(e) {
   btn.innerText = 'Submitting...';
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/wallet/recharge', {
       method: 'POST',
       headers: {
@@ -2112,7 +2132,7 @@ async function renderSmsDevicesSubTab(container) {
   container.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Loading connected Android devices...</div>`;
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/devices', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -2252,7 +2272,7 @@ async function openPairAndroidModal() {
   codeDisplay.innerText = 'GENERATING...';
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/device/pair-request', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -2283,7 +2303,7 @@ function closePairAndroidModal() {
 
 async function handleSetDefaultSim(deviceId, simSlot) {
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch(`/api/v1/sms/devices/${deviceId}/default-sim`, {
       method: 'POST',
       headers: {
@@ -2311,7 +2331,7 @@ async function handleSetDefaultSim(deviceId, simSlot) {
 async function handleDeleteSmsDevice(deviceId) {
   if (!confirm('Are you sure you want to disconnect this Android device?')) return;
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch(`/api/v1/sms/devices/${deviceId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -2490,7 +2510,7 @@ async function handleDirectSmsSubmit(e) {
   btn.innerText = 'Dispatching...';
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/send', {
       method: 'POST',
       headers: {
@@ -2644,7 +2664,7 @@ async function handleSmsBroadcastSubmit(e) {
   btn.innerText = 'Queueing Broadcast...';
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/broadcast', {
       method: 'POST',
       headers: {
@@ -2687,7 +2707,7 @@ async function renderSmsWalletSubTab(container) {
   container.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Loading wallet &amp; SMS packages...</div>`;
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const [wRes, pRes] = await Promise.all([
       fetch('/api/v1/sms/wallet', { headers: { 'Authorization': `Bearer ${token}` } }),
       fetch('/api/v1/sms/packages', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -2961,7 +2981,7 @@ async function handleDirectRechargeSubmit(e) {
   btn.innerText = 'Submitting...';
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/wallet/recharge', {
       method: 'POST',
       headers: {
@@ -3005,7 +3025,7 @@ async function handleBuyPackageWithWallet(pkgId, pkgName, price, smsCount) {
   if (!confirm(`Confirm purchase of '${pkgName}' (${smsCount} SMS Credits) for ৳${price} from your SMS Wallet balance?`)) return;
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/packages/purchase', {
       method: 'POST',
       headers: {
@@ -3067,7 +3087,7 @@ async function handleBuyPackageManualSubmit(e) {
   btn.innerText = 'Submitting...';
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch('/api/v1/sms/packages/purchase', {
       method: 'POST',
       headers: {
@@ -3143,7 +3163,7 @@ async function fetchSmsLogsAndRenderTable(statusFilter = 'all') {
   if (!box) return;
 
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const url = `/api/v1/sms/logs?limit=50${statusFilter !== 'all' ? '&status=' + statusFilter : ''}`;
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -3213,7 +3233,7 @@ async function fetchSmsLogsAndRenderTable(statusFilter = 'all') {
 
 async function handleRetrySmsJob(jobId) {
   try {
-    const token = localStorage.getItem('un_token');
+    const token = getAuthToken();
     const res = await fetch(`/api/v1/sms/jobs/${jobId}/retry`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -4357,7 +4377,7 @@ async function handleQuickSend(e) {
         gwType = 'android_sim';
       }
 
-      const token = localStorage.getItem('un_token');
+      const token = getAuthToken();
       res = await fetch('/api/v1/sms/send', {
         method: 'POST',
         headers: {
