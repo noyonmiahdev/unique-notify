@@ -12,6 +12,25 @@
   <title>Unique-Notify — Super Admin Console</title>
   <!-- Local Static Tailwind CSS (Zero Dependency / Offline Ready) -->
   <link rel="stylesheet" href="/css/tailwind.min.css">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857'
+            }
+          }
+        }
+      }
+    }
+  </script>
   <!-- Admin Custom Styling -->
   <link rel="stylesheet" href="/css/admin.css">
   <!-- Lucide Icons -->
@@ -46,12 +65,12 @@
     <div id="authAlert" class="hidden mb-4 p-3.5 rounded-xl border text-xs"></div>
 
     <!-- Login Form -->
-    <form id="authForm" onsubmit="doAdminLogin(event)" class="space-y-4 text-xs">
+    <form id="authForm" onsubmit="doAdminLogin(event)" class="space-y-4 text-xs" autocomplete="off">
       <div>
         <label class="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Admin Email</label>
         <div class="relative">
           <i data-lucide="mail" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-          <input id="loginEmail" type="email" value="admin@uniquenotify.com" required
+          <input id="loginEmail" type="email" placeholder="admin@domain.com" autocomplete="off" required
                  class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none transition">
         </div>
       </div>
@@ -60,12 +79,12 @@
         <label class="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Admin Password</label>
         <div class="relative">
           <i data-lucide="key-round" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-          <input id="loginPassword" type="password" value="admin123" required
+          <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="off" required
                  class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none transition">
         </div>
       </div>
 
-      <button type="submit" id="loginBtn" class="btn-submit-login mt-2">
+      <button type="submit" id="loginBtn" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold flex items-center justify-center gap-2 shadow-xs transition-all duration-150 cursor-pointer mt-2">
         <i data-lucide="shield-check" class="w-4 h-4"></i>
         <span>Authenticate as Super Admin</span>
       </button>
@@ -139,6 +158,29 @@
       <a class="sidebar-link" id="nav-gateways" onclick="gotoPage('gateways')">
         <i data-lucide="server" class="w-4 h-4 text-slate-500"></i>
         <span>Gateway Engines</span>
+      </a>
+
+      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">SMS Automation &amp; Billing</p>
+      <a class="sidebar-link" id="nav-smsgateways" onclick="gotoPage('smsgateways')">
+        <i data-lucide="radio" class="w-4 h-4 text-slate-500"></i>
+        <span>SMS Gateways</span>
+      </a>
+      <a class="sidebar-link" id="nav-smsdevices" onclick="gotoPage('smsdevices')">
+        <i data-lucide="smartphone" class="w-4 h-4 text-slate-500"></i>
+        <span>Android Nodes &amp; Sender IDs</span>
+      </a>
+      <a class="sidebar-link" id="nav-smsbilling" onclick="gotoPage('smsbilling')">
+        <i data-lucide="coins" class="w-4 h-4 text-slate-500"></i>
+        <span>SMS Pricing &amp; Packages</span>
+      </a>
+      <a class="sidebar-link" id="nav-smsusers" onclick="gotoPage('smsusers')">
+        <i data-lucide="wallet" class="w-4 h-4 text-slate-500"></i>
+        <span>User SMS Wallets</span>
+      </a>
+      <a class="sidebar-link" id="nav-smstransactions" onclick="gotoPage('smstransactions')">
+        <i data-lucide="receipt" class="w-4 h-4 text-slate-500"></i>
+        <span>SMS Top-up Requests</span>
+        <span id="sidebarSmsPendingBadge" class="hidden ml-auto px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-amber-500 text-white"></span>
       </a>
 
       <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">Security</p>
@@ -531,6 +573,185 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5" id="plansGrid"></div>
       </div>
 
+      <!-- ──────────── TAB: SMS GATEWAYS (ADMIN ONLY) ──────────── -->
+      <div id="page-smsgateways" class="tab-content space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Third-Party SMS Gateways</h2>
+            <p class="text-xs text-slate-500">Super Admin only. Configure Greenweb, BulkSMSBD, or Custom HTTP SMS Gateways.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openTestSmsModal()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Test SMS Dispatch</span>
+            </button>
+            <button onclick="openAddSmsGatewayModal()" class="btn-primary">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Add Gateway Provider</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="smsGatewaysGrid"></div>
+      </div>
+
+      <!-- ──────────── TAB: ANDROID NODES & SENDER IDS (ADMIN ONLY) ──────────── -->
+      <div id="page-smsdevices" class="tab-content space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Android Mobile Nodes &amp; Sender IDs</h2>
+            <p class="text-xs text-slate-500">Configure Sender ID names for SIM 1 &amp; SIM 2, and assign devices as Shared Platform Pool or Dedicated to a client.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="loadAdminSmsDevices()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Refresh Devices</span>
+            </button>
+            <button onclick="openAdminPairAndroidModal()" class="btn-primary flex items-center gap-1.5">
+              <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+              <span>Pair New Android Phone</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold text-[11px] border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-4">Device &amp; Phone</th>
+                  <th class="py-3 px-4">Paired By</th>
+                  <th class="py-3 px-4">SIM 1 &amp; Sender ID</th>
+                  <th class="py-3 px-4">SIM 2 &amp; Sender ID</th>
+                  <th class="py-3 px-4">Routing Pool</th>
+                  <th class="py-3 px-4">Assigned Client</th>
+                  <th class="py-3 px-4">Status &amp; Battery</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminSmsDevicesTbody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                <tr><td colspan="8" class="text-center py-8 text-slate-400">Loading Android devices...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ──────────── TAB: SMS PRICING & PACKAGES ──────────── -->
+      <div id="page-smsbilling" class="tab-content space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">SMS Pricing &amp; Packages</h2>
+            <p class="text-xs text-slate-500">Set Pay-as-you-go per-SMS rates (Default: ৳0.35) and create bundle packages.</p>
+          </div>
+          <button onclick="openAddSmsPackageModal()" class="btn-primary">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Create SMS Package</span>
+          </button>
+        </div>
+
+        <!-- Global Rate Settings Box -->
+        <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+          <h3 class="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+            <i data-lucide="coins" class="w-4 h-4 text-emerald-600"></i>
+            <span>Global Pay-As-You-Go Rate Settings</span>
+          </h3>
+          <p class="text-xs text-slate-500 mb-4">When a user has no active bundle, each SMS sent through Cloud Gateway deducts this rate.</p>
+          <form onsubmit="saveSmsPricingSettings(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block font-semibold text-slate-700 uppercase text-[11px] mb-1">Per SMS Rate (BDT)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
+                <input type="number" step="0.01" min="0.01" id="sms-set-rate" required value="0.35" class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none text-xs font-semibold text-slate-900">
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 uppercase text-[11px] mb-1">Min Recharge Amount (BDT)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
+                <input type="number" step="1" min="10" id="sms-set-min" required value="50.00" class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none text-xs font-semibold text-slate-900">
+              </div>
+            </div>
+            <div class="flex items-end">
+              <button type="submit" class="btn-primary w-full justify-center">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                <span>Save Rate Settings</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Packages List -->
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 mb-3">Prepaid SMS Bundle Packages</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="smsPackagesAdminGrid"></div>
+        </div>
+      </div>
+
+      <!-- ──────────── TAB: USER SMS WALLETS ──────────── -->
+      <div id="page-smsusers" class="tab-content space-y-5">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">User SMS Wallets</h2>
+          <p class="text-xs text-slate-500">Monitor all clients' prepaid SMS cash balances, unit credits, and assign custom per-SMS rates.</p>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px]">
+                <tr>
+                  <th class="py-3 px-4 text-left">Client</th>
+                  <th class="py-3 px-4 text-left">Cash Balance</th>
+                  <th class="py-3 px-4 text-left">SMS Credits</th>
+                  <th class="py-3 px-4 text-left">Rate / SMS</th>
+                  <th class="py-3 px-4 text-left">Joined</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="smsUsersTbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ──────────── TAB: SMS TOP-UP REQUESTS ──────────── -->
+      <div id="page-smstransactions" class="tab-content space-y-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">SMS Top-up &amp; Package Approvals</h2>
+            <p class="text-xs text-slate-500">Review pending bKash / Nagad / Rocket transaction requests from clients.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="smsTxStatusFilter" onchange="loadSmsTransactions()" class="px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:outline-none">
+              <option value="all">All Status</option>
+              <option value="PENDING" selected>Pending Only</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px]">
+                <tr>
+                  <th class="py-3 px-4 text-left">Trx ID</th>
+                  <th class="py-3 px-4 text-left">Client</th>
+                  <th class="py-3 px-4 text-left">Type &amp; Description</th>
+                  <th class="py-3 px-4 text-left">Amount / Credits</th>
+                  <th class="py-3 px-4 text-left">Method &amp; Sender</th>
+                  <th class="py-3 px-4 text-left">Status</th>
+                  <th class="py-3 px-4 text-left">Date</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="smsTransactionsTbody" class="divide-y divide-slate-100 font-mono"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -657,6 +878,326 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: ADD / EDIT SMS GATEWAY (ADMIN ONLY) ─── -->
+<div id="modalSmsGateway" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <h3 id="modalSmsGatewayTitle" class="font-bold text-slate-900 text-sm">Add Third-Party SMS Gateway</h3>
+      <button onclick="closeSmsGatewayModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <form onsubmit="saveSmsGateway(event)" class="p-6 space-y-4 text-xs">
+      <input type="hidden" id="gw-id">
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Provider Driver</label>
+        <select id="gw-provider" required class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+          <option value="greenweb">Greenweb Bangladesh (api.greenweb.com.bd)</option>
+          <option value="bulksmsbd">BulkSMSBD (bulksmsbd.net)</option>
+          <option value="custom_http">Generic Custom HTTP API (GET / POST)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">API Endpoint URL</label>
+        <input type="text" id="gw-url" required placeholder="http://api.greenweb.com.bd/api.php" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none font-mono">
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">API Key / Token</label>
+        <input type="text" id="gw-key" placeholder="Enter provider API token or key" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none font-mono">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">Sender ID / Mask</label>
+          <input type="text" id="gw-sender" placeholder="Optional, e.g. UNIQUE" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">Default Gateway?</label>
+          <select id="gw-default" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+            <option value="0">No (Secondary)</option>
+            <option value="1">Yes (Primary Default)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Notes / Description</label>
+        <input type="text" id="gw-notes" placeholder="e.g. Bangladesh Bulk SMS Route 1" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+      </div>
+      <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+        <button type="button" onclick="closeSmsGatewayModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="btn-primary"><i data-lucide="save" class="w-3.5 h-3.5"></i>Save Gateway</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── MODAL: TEST SEND SMS GATEWAY ─── -->
+<div id="modalSmsTest" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <h3 class="font-bold text-slate-900 text-sm">Test Dispatch SMS</h3>
+      <button onclick="closeTestSmsModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <form onsubmit="handleTestSmsSend(event)" class="p-6 space-y-4 text-xs">
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Target Gateway</label>
+        <select id="test-sms-gateway" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none"></select>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Recipient Mobile Number</label>
+        <input type="text" id="test-sms-phone" required placeholder="017xxxxxxxx" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none font-mono">
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Test Message</label>
+        <textarea id="test-sms-message" rows="3" required class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none resize-none">Test SMS from Unique-Notify Admin Console at ${new Date().toLocaleTimeString()}</textarea>
+      </div>
+      <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+        <button type="button" onclick="closeTestSmsModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+        <button type="submit" id="btnTestSmsSubmit" class="btn-primary"><i data-lucide="send" class="w-3.5 h-3.5"></i>Dispatch Test SMS</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── MODAL: CREATE / EDIT SMS PACKAGE ─── -->
+<div id="modalSmsPackage" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <h3 id="modalSmsPackageTitle" class="font-bold text-slate-900 text-sm">Create SMS Package</h3>
+      <button onclick="closeSmsPackageModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <form onsubmit="saveSmsPackage(event)" class="p-6 space-y-4 text-xs">
+      <input type="hidden" id="pkg-id">
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Package Name</label>
+        <input type="text" id="pkg-name" required placeholder="e.g. Business 1K Pack" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">Total SMS Credits</label>
+          <input type="number" id="pkg-count" required min="10" placeholder="1000" oninput="calculatePkgRate()" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">Package Price (BDT)</label>
+          <input type="number" step="0.01" id="pkg-price" required min="1" placeholder="350.00" oninput="calculatePkgRate()" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">Calculated Rate / SMS (BDT)</label>
+          <input type="number" step="0.001" id="pkg-rate" readonly class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-700">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">Validity (Days)</label>
+          <input type="number" id="pkg-validity" required value="365" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+        </div>
+      </div>
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Features (One bullet per line)</label>
+        <textarea id="pkg-features" rows="3" placeholder="1,000 SMS Credits&#10;Rate: ৳0.35/SMS&#10;Priority Queue&#10;365 Days Validity" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none resize-none"></textarea>
+      </div>
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="pkg-popular" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-600">
+          <span class="font-medium text-slate-700">Mark as Popular / Featured</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="pkg-active" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-600">
+          <span class="font-medium text-slate-700">Active for Sale</span>
+        </label>
+      </div>
+      <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+        <button type="button" onclick="closeSmsPackageModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="btn-primary"><i data-lucide="save" class="w-3.5 h-3.5"></i>Save Package</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── MODAL: ADJUST USER SMS WALLET & CUSTOM RATE ─── -->
+<div id="modalAdjustSmsUser" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div>
+        <h3 id="modalSmsUserName" class="font-bold text-slate-900 text-sm">Adjust SMS Balance</h3>
+        <p id="modalSmsUserEmail" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button onclick="closeAdjustSmsModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <form onsubmit="handleAdjustSmsSubmit(event)" class="p-6 space-y-4 text-xs">
+      <input type="hidden" id="adj-user-id">
+      
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 gap-2">
+        <div>
+          <span class="text-[11px] text-slate-500">Current Cash:</span>
+          <p id="adj-curr-cash" class="font-bold text-slate-900 text-sm">৳0.00</p>
+        </div>
+        <div>
+          <span class="text-[11px] text-slate-500">Current Credits:</span>
+          <p id="adj-curr-credits" class="font-bold text-slate-900 text-sm">0 SMS</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Adjustment Action</label>
+        <select id="adj-action" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none font-semibold">
+          <option value="ADD_BALANCE">Add Cash Balance (৳ BDT)</option>
+          <option value="DEDUCT_BALANCE">Deduct Cash Balance (৳ BDT)</option>
+          <option value="ADD_CREDITS">Add SMS Unit Credits (SMS Count)</option>
+          <option value="DEDUCT_CREDITS">Deduct SMS Unit Credits (SMS Count)</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">Cash Amount (৳ BDT)</label>
+          <input type="number" step="0.01" id="adj-amount" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">SMS Units (Count)</label>
+          <input type="number" id="adj-credits" placeholder="0" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+        </div>
+      </div>
+
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Custom Rate / SMS (Optional, Empty = System Default ৳0.35)</label>
+        <input type="number" step="0.01" min="0.01" id="adj-custom-rate" placeholder="e.g. 0.30" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+      </div>
+
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Admin Audit Note</label>
+        <input type="text" id="adj-note" placeholder="Reason for manual adjustment..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+        <button type="button" onclick="closeAdjustSmsModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="btn-primary"><i data-lucide="check" class="w-3.5 h-3.5"></i>Apply Adjustment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── MODAL: CONFIGURE ANDROID SENDER ID & DEDICATED ASSIGNMENT ─── -->
+<div id="modalAssignDevice" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div>
+        <h3 id="modalAssignDeviceTitle" class="font-bold text-slate-900 text-sm">Configure Android Node &amp; Sender ID</h3>
+        <p id="modalAssignDeviceSubtitle" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button onclick="closeAssignDeviceModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <form onsubmit="handleAssignDeviceSubmit(event)" class="p-6 space-y-4 text-xs">
+      <input type="hidden" id="assign-device-id">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">SIM 1 Sender ID / Mask Label</label>
+          <input type="text" id="assign-sim1-sender" placeholder="e.g. ITStar-SIM1 or 017..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+          <p class="text-[10px] text-slate-400 mt-1">Displayed as the sender channel label</p>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 uppercase mb-1">SIM 2 Sender ID / Mask Label</label>
+          <input type="text" id="assign-sim2-sender" placeholder="e.g. ITStar-SIM2 or 018..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none">
+          <p class="text-[10px] text-slate-400 mt-1">Displayed as the sender channel label</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Device Routing Mode</label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+            <input type="radio" name="assign_routing_mode" value="shared" onchange="toggleAssignClientDropdown(false)" class="text-emerald-600">
+            <div>
+              <span class="font-bold text-slate-900 block text-xs">Shared Platform Pool</span>
+              <span class="text-[10px] text-slate-500">Available to all users as a public gateway route</span>
+            </div>
+          </label>
+          <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+            <input type="radio" name="assign_routing_mode" value="dedicated" onchange="toggleAssignClientDropdown(true)" class="text-emerald-600">
+            <div>
+              <span class="font-bold text-slate-900 block text-xs">Dedicated to Client</span>
+              <span class="text-[10px] text-slate-500">Exclusively reserved for one chosen client</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div id="assign-client-box" class="hidden">
+        <label class="block font-semibold text-slate-700 uppercase mb-1">Assign to Dedicated Client Account</label>
+        <select id="assign-user-select" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white focus:border-emerald-600 focus:outline-none font-medium">
+          <!-- Populated dynamically with users -->
+        </select>
+        <p class="text-[10px] text-slate-400 mt-1">Only this customer will be able to dispatch SMS through this phone/SIMs</p>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+        <button type="button" onclick="closeAssignDeviceModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="btn-primary"><i data-lucide="check" class="w-3.5 h-3.5"></i>Save Configuration</button>
+      </div>
+    </form>
+  </div>
+<!-- ─── MODAL: PAIR ANDROID SMS NODE (ADMIN ONLY) ─── -->
+<div id="modalAdminPairAndroid" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs">
+  <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="smartphone" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm">Pair Android Gateway Phone</h3>
+          <p class="text-xs text-slate-500">Connect platform dispatch hardware</p>
+        </div>
+      </div>
+      <button onclick="closeAdminPairAndroidModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <div class="p-6 space-y-5 text-xs">
+      <div class="text-center space-y-2">
+        <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Your Pairing Code</span>
+        <div class="p-4 bg-slate-50 border-2 border-dashed border-emerald-500 rounded-xl flex items-center justify-center gap-3">
+          <span id="admin-pairing-code-display" class="font-mono text-3xl font-extrabold text-emerald-700 tracking-widest">------</span>
+          <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('admin-pairing-code-display').innerText); showToast('Pairing code copied');" class="p-2 border border-slate-200 rounded-lg hover:bg-white text-slate-600" title="Copy Code">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400">Valid for 10 minutes. Phone will automatically link to platform queue.</p>
+      </div>
+
+      <div class="space-y-3 pt-2 border-t border-slate-100">
+        <div class="font-bold text-slate-800 text-xs">3 Steps to Connect as Platform Gateway:</div>
+        <div class="space-y-2 text-slate-600">
+          <div class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">1</span>
+            <div>Install the <strong>Unique-Notify Gateway APK</strong> on the Android phone.</div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">2</span>
+            <div>Open app, verify server URL (<code class="font-mono text-slate-700">https://uniquenotify.itstarlab.com</code>) and enter the 6-character pairing code.</div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-[10px]">3</span>
+            <div>Grant SMS/Phone permissions, enable <strong>SMS Dispatch Worker</strong> switch, and tap <strong>Battery Exemption</strong>.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end">
+        <button type="button" onclick="closeAdminPairAndroidModal()" class="btn-primary">Done &amp; Refresh Devices</button>
       </div>
     </div>
   </div>

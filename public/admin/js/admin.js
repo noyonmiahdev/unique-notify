@@ -84,15 +84,15 @@ async function doAdminLogin(e) {
       showApp();
       gotoPage('overview');
     } else {
-      alert.className = 'mb-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-400/20 text-rose-200 text-sm';
+      alert.className = 'mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold';
       alert.textContent = data.message || 'Authentication failed.';
     }
   } catch {
-    alert.className = 'mb-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-400/20 text-rose-200 text-sm';
+    alert.className = 'mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold';
     alert.textContent = 'Cannot connect to server.';
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<i data-lucide="log-in" class="w-4 h-4"></i><span>Sign In to Admin Console</span>';
+    btn.innerHTML = '<i data-lucide="shield-check" class="w-4 h-4"></i><span>Authenticate as Super Admin</span>';
     lucide.createIcons();
   }
 }

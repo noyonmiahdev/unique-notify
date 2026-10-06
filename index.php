@@ -421,53 +421,79 @@
 
         <!-- Navigation Links -->
         <nav class="flex-1 overflow-y-auto p-3 space-y-1 text-xs font-medium">
+          <!-- Overview -->
           <button onclick="switchTab('overview')" id="nav-overview" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
             <i data-lucide="layout-dashboard" class="w-4 h-4 text-slate-500"></i>
             <span>Overview</span>
           </button>
 
-          <button onclick="switchTab('otp')" id="nav-otp" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
-            <i data-lucide="shield-check" class="w-4 h-4 text-slate-500"></i>
-            <span>OTP Center</span>
+          <!-- Group 1: SMS Automation (SIM & Cloud Gateway) -->
+          <div class="pt-3 pb-1 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span>SMS Automation</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          </div>
+
+          <button onclick="switchTab('sms-send')" id="nav-sms-send" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="send" class="w-4 h-4 text-emerald-600"></i>
+            <span>Quick Send SMS</span>
           </button>
+
+          <button onclick="switchTab('sms-campaign')" id="nav-sms-campaign" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="megaphone" class="w-4 h-4 text-emerald-600"></i>
+            <span>Bulk SMS Campaign</span>
+          </button>
+
+          <button onclick="switchTab('contacts')" id="nav-contacts" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="book-user" class="w-4 h-4 text-emerald-600"></i>
+            <span>Phone Book &amp; Contacts</span>
+          </button>
+
+          <button onclick="switchTab('sms-wallet')" id="nav-sms-wallet" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="wallet" class="w-4 h-4 text-emerald-600"></i>
+            <span>SMS Wallet &amp; Top-up</span>
+          </button>
+
+          <button onclick="switchTab('sms-logs')" id="nav-sms-logs" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="list-filter" class="w-4 h-4 text-emerald-600"></i>
+            <span>SMS Queue &amp; Logs</span>
+          </button>
+
+          <!-- Group 2: WhatsApp Channels -->
+          <div class="pt-3 pb-1 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span>WhatsApp Channels</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          </div>
 
           <button onclick="switchTab('devices')" id="nav-devices" class="nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
             <div class="flex items-center gap-2.5">
-              <i data-lucide="qr-code" class="w-4 h-4 text-slate-500"></i>
+              <i data-lucide="qr-code" class="w-4 h-4 text-blue-600"></i>
               <span>WhatsApp Gateways</span>
             </div>
             <span id="sidebar-device-badge" class="w-2 h-2 rounded-full bg-amber-400"></span>
           </button>
 
-          <button onclick="switchTab('sms-gateway')" id="nav-sms-gateway" class="nav-btn w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
-            <div class="flex items-center gap-2.5">
-              <i data-lucide="radio" class="w-4 h-4 text-slate-500"></i>
-              <span>SMS Gateway (SIM / API)</span>
-            </div>
-            <span id="sidebar-sms-badge" class="w-2 h-2 rounded-full bg-slate-300"></span>
-          </button>
-
-          <button onclick="switchTab('broadcasts')" id="nav-broadcasts" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
-            <i data-lucide="megaphone" class="w-4 h-4 text-slate-500"></i>
-            <span>Broadcast Campaigns</span>
-          </button>
-
-          <button onclick="switchTab('contacts')" id="nav-contacts" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
-            <i data-lucide="users" class="w-4 h-4 text-slate-500"></i>
-            <span>Contact Book</span>
+          <button onclick="switchTab('otp')" id="nav-otp" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="shield-check" class="w-4 h-4 text-blue-600"></i>
+            <span>OTP Verification Center</span>
           </button>
 
           <button onclick="switchTab('messenger')" id="nav-messenger" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
-            <i data-lucide="send" class="w-4 h-4 text-slate-500"></i>
+            <i data-lucide="message-square" class="w-4 h-4 text-blue-600"></i>
             <span>Direct Messenger</span>
           </button>
 
-          <button onclick="switchTab('logs')" id="nav-logs" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
-            <i data-lucide="list-filter" class="w-4 h-4 text-slate-500"></i>
-            <span>Delivery Logs</span>
+          <button onclick="switchTab('broadcasts')" id="nav-broadcasts" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="radio" class="w-4 h-4 text-blue-600"></i>
+            <span>WhatsApp Campaigns</span>
           </button>
 
-          <div class="pt-3 pb-1 px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Integrations</div>
+          <button onclick="switchTab('logs')" id="nav-logs" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
+            <i data-lucide="history" class="w-4 h-4 text-slate-500"></i>
+            <span>WhatsApp Logs</span>
+          </button>
+
+          <!-- Group 3: Integrations & API -->
+          <div class="pt-3 pb-1 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Integrations &amp; Billing</div>
 
           <button onclick="switchTab('api-keys')" id="nav-api-keys" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
             <i data-lucide="key" class="w-4 h-4 text-slate-500"></i>
@@ -476,14 +502,12 @@
 
           <button onclick="switchTab('api-docs')" id="nav-api-docs" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
             <i data-lucide="code" class="w-4 h-4 text-slate-500"></i>
-            <span>Docs & WHMCS Hook</span>
+            <span>Docs &amp; WHMCS Hook</span>
           </button>
-
-          <div class="pt-3 pb-1 px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Subscription</div>
 
           <button onclick="switchTab('billing')" id="nav-billing" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
             <i data-lucide="credit-card" class="w-4 h-4 text-slate-500"></i>
-            <span>Plans & Billing</span>
+            <span>Plans &amp; Subscription</span>
           </button>
 
           <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left">
@@ -601,11 +625,9 @@
               <option value="qr">QR Device (Baileys WhatsApp)</option>
             </optgroup>
             <optgroup label="SMS Gateways">
-              <option value="sms_android_sim1">Android Mobile Gateway (SIM 1)</option>
-              <option value="sms_android_sim2">Android Mobile Gateway (SIM 2)</option>
-              <option value="sms_greenweb">Greenweb BD (SMS Aggregator)</option>
-              <option value="sms_bulksmsbd">BulkSMSBD (SMS Aggregator)</option>
-              <option value="sms_custom_http">Custom HTTP Gateway (SMS API)</option>
+              <option value="sms_cloud">Platform Cloud SMS Gateway (৳0.35 / SMS)</option>
+              <option value="sms_android_sim1">My Android Phone (SIM 1 - Free)</option>
+              <option value="sms_android_sim2">My Android Phone (SIM 2 - Free)</option>
             </optgroup>
           </select>
         </div>
@@ -637,6 +659,121 @@
         <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
           <button type="button" onclick="closeQuickSendModal()" class="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">Cancel</button>
           <button type="submit" id="btn-quick-send-submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs">Dispatch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Recharge Balance Modal -->
+  <div id="modal-sms-recharge" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-slide-up">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">৳</div>
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">Top-Up SMS Balance</h3>
+            <p class="text-xs text-slate-500">Instant credit upon TrxID verification</p>
+          </div>
+        </div>
+        <button onclick="closeSmsRechargeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-sms-modal-recharge" onsubmit="handleModalSmsRechargeSubmit(event)" class="p-6 space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Recharge Amount (BDT)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-slate-400 font-bold">৳</span>
+            <input type="number" id="sms-modal-recharge-amount" min="50" step="10" value="100" required class="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-3 py-2.5 text-slate-900 font-bold text-base focus:border-emerald-600 focus:outline-none">
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Minimum recharge amount is ৳50. Pay-As-You-Go per SMS rate: ৳0.35.</p>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Select Payment Method</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+              <input type="radio" name="sms_modal_pay_method" value="bkash" checked onchange="updateSmsModalPayInfo('bkash')" class="mb-1 text-emerald-600">
+              <span class="font-bold text-xs text-slate-800">bKash</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+              <input type="radio" name="sms_modal_pay_method" value="nagad" onchange="updateSmsModalPayInfo('nagad')" class="mb-1 text-emerald-600">
+              <span class="font-bold text-xs text-slate-800">Nagad</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-emerald-500 cursor-pointer bg-white">
+              <input type="radio" name="sms_modal_pay_method" value="rocket" onchange="updateSmsModalPayInfo('rocket')" class="mb-1 text-emerald-600">
+              <span class="font-bold text-xs text-slate-800">Rocket</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="sms-modal-pay-box" class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 leading-relaxed text-[11px]">
+          Send Money / Payment to bKash Number: <strong class="font-mono text-slate-900 font-bold" id="sms-modal-pay-number">01700000000</strong>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sender Mobile</label>
+            <input type="text" id="sms-modal-sender-phone" required placeholder="017xxxxxxxx" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-emerald-600 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Transaction ID (TrxID)</label>
+            <input type="text" id="sms-modal-trx-id" required placeholder="e.g. 9B8C7A6D5E" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono uppercase focus:border-emerald-600 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+          <button type="button" onclick="closeSmsRechargeModal()" class="px-3.5 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold">Cancel</button>
+          <button type="submit" id="btn-sms-modal-recharge-submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs">Submit Top-Up</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Manual Package Buy Modal -->
+  <div id="modal-buy-pkg-manual" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-slide-up">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-sm text-slate-900">Purchase SMS Bundle</h3>
+          <p id="modal-buy-pkg-title" class="text-xs text-emerald-700 font-semibold mt-0.5">Starter Package - ৳70</p>
+        </div>
+        <button onclick="closeBuyPackageManualModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-buy-pkg-manual" onsubmit="handleBuyPackageManualSubmit(event)" class="p-6 space-y-4 text-xs">
+        <input type="hidden" id="modal-buy-pkg-id" value="">
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Payment Method</label>
+          <select id="modal-buy-pkg-method" onchange="updatePkgManualInfo(this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:border-emerald-600 focus:outline-none">
+            <option value="bkash">bKash Personal / Merchant</option>
+            <option value="nagad">Nagad Payment</option>
+            <option value="rocket">Rocket DBBL</option>
+          </select>
+        </div>
+
+        <div id="modal-buy-pkg-info-box" class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 leading-relaxed text-[11px]">
+          Send exact package amount to bKash: <strong class="font-mono text-slate-900 font-bold" id="modal-buy-pkg-number">01700000000</strong>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sender Mobile</label>
+            <input type="text" id="modal-buy-pkg-sender" required placeholder="017xxxxxxxx" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-emerald-600 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Transaction ID (TrxID)</label>
+            <input type="text" id="modal-buy-pkg-trx" required placeholder="e.g. 9B8C7A6D5E" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono uppercase focus:border-emerald-600 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+          <button type="button" onclick="closeBuyPackageManualModal()" class="px-3.5 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold">Cancel</button>
+          <button type="submit" id="btn-buy-pkg-manual-submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs">Submit Purchase</button>
         </div>
       </form>
     </div>

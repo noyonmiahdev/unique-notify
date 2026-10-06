@@ -12,6 +12,25 @@
   <title>Unique-Notify — Super Admin Console</title>
   <!-- Local Static Tailwind CSS (Zero Dependency / Offline Ready) -->
   <link rel="stylesheet" href="/css/tailwind.min.css">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857'
+            }
+          }
+        }
+      }
+    }
+  </script>
   <!-- Admin Custom Styling -->
   <link rel="stylesheet" href="/css/admin.css">
   <!-- Lucide Icons -->
@@ -46,12 +65,12 @@
     <div id="authAlert" class="hidden mb-4 p-3.5 rounded-xl border text-xs"></div>
 
     <!-- Login Form -->
-    <form id="authForm" onsubmit="doAdminLogin(event)" class="space-y-4 text-xs">
+    <form id="authForm" onsubmit="doAdminLogin(event)" class="space-y-4 text-xs" autocomplete="off">
       <div>
         <label class="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Admin Email</label>
         <div class="relative">
           <i data-lucide="mail" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-          <input id="loginEmail" type="email" value="admin@uniquenotify.com" required
+          <input id="loginEmail" type="email" placeholder="admin@domain.com" autocomplete="off" required
                  class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none transition">
         </div>
       </div>
@@ -60,12 +79,12 @@
         <label class="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Admin Password</label>
         <div class="relative">
           <i data-lucide="key-round" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-          <input id="loginPassword" type="password" value="admin123" required
+          <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="off" required
                  class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none transition">
         </div>
       </div>
 
-      <button type="submit" id="loginBtn" class="btn-submit-login mt-2">
+      <button type="submit" id="loginBtn" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold flex items-center justify-center gap-2 shadow-xs transition-all duration-150 cursor-pointer mt-2">
         <i data-lucide="shield-check" class="w-4 h-4"></i>
         <span>Authenticate as Super Admin</span>
       </button>
