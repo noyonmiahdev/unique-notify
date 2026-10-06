@@ -199,9 +199,10 @@ class SmsQueueEngine {
   }
 
   /**
-   * Enqueue a new SMS for delivery with automated Pay-as-you-go balance verification
+   * Enqueue a new SMS for delivery with automated SaaS Pay-as-you-go balance verification
+   * Routing is decided centrally by Admin settings and assigned dedicated nodes.
    */
-  async enqueueSms({ userId, recipient, message, gatewayType = 'android_sim', simSlot = 1, deviceId = null }) {
+  async enqueueSms({ userId, recipient, message, gatewayType = 'auto', simSlot = null, deviceId = null }) {
     const cleanPhone = recipient.replace(/[^\d+]/g, '');
     if (!cleanPhone || cleanPhone.length < 8) {
       throw new Error('Invalid recipient phone number.');
@@ -209,66 +210,69 @@ class SmsQueueEngine {
 
     const { parts, isUnicode, charCount } = this.calculateSmsParts(message);
 
-    // 1. If Cloud Gateway / Platform Route is selected, handle Pay-as-you-go billing
-    if (gatewayType !== 'android_sim' && gatewayType !== 'dedicated_sim') {
-      // Find active 3rd party gateway configured by Admin
-      let provider = null;
-      if (gatewayType && gatewayType !== 'auto' && gatewayType !== 'cloud_gateway') {
-        provider = await db.getOne('SELECT * FROM sms_gateways WHERE provider_name = ? AND is_active = 1', [gatewayType]);
-      } else {
-        provider = await db.getOne('SELECT * FROM sms_gateways WHERE is_default = 1 AND is_active = 1 LIMIT 1');
-        if (!provider) {
-          provider = await db.getOne('SELECT * FROM sms_gateways WHERE is_active = 1 LIMIT 1');
-        }
-      }
+    // 1. Fetch User SMS Wallet & Package Rates
+    const user = await db.getOne('SELECT id, name, sms_balance, sms_credits, custom_sms_rate FROM users WHERE id = ?', [userId]);
+    if (!user) throw new Error('User account not found.');
 
-      // If no 3rd party gateway, check if Admin has a Shared Android Node (is_shared = 1)
-      let sharedDevice = null;
-      if (!provider) {
-        sharedDevice = await db.getOne(
-          'SELECT * FROM sms_devices WHERE is_shared = 1 AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1'
-        ) || await db.getOne('SELECT * FROM sms_devices WHERE is_shared = 1 ORDER BY id DESC LIMIT 1');
-      }
+    const defaultRateSetting = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "default_sms_rate"');
+    const baseRate = parseFloat(defaultRateSetting?.setting_value || '0.35');
+    const userRate = user.custom_sms_rate !== null ? parseFloat(user.custom_sms_rate) : baseRate;
+    const totalCost = parts * userRate;
 
-      if (!provider && !sharedDevice) {
-        throw new Error('No active Platform SMS Gateway or Android Node configured by Admin. Please contact support.');
-      }
+    let paymentSource = 'BALANCE';
+    const currentCredits = parseInt(user.sms_credits || 0, 10);
+    const currentBalance = parseFloat(user.sms_balance || 0);
 
-      // Check User SMS Wallet Balance & Rate
-      const user = await db.getOne('SELECT id, name, sms_balance, sms_credits, custom_sms_rate FROM users WHERE id = ?', [userId]);
-      if (!user) throw new Error('User account not found.');
+    // 2. Resolve Dispatch Gateway & Node (Decided by Admin / System)
+    let assignedDevice = null;
+    let thirdPartyProvider = null;
+    let sharedDevice = null;
 
-      const defaultRateSetting = await db.getOne('SELECT setting_value FROM system_settings WHERE setting_key = "default_sms_rate"');
-      const baseRate = parseFloat(defaultRateSetting?.setting_value || '0.35');
-      const userRate = user.custom_sms_rate !== null ? parseFloat(user.custom_sms_rate) : baseRate;
-      const totalCost = parts * userRate;
+    // Check A: Admin assigned dedicated device/SIM for this user
+    assignedDevice = await db.getOne(
+      'SELECT * FROM sms_devices WHERE assigned_user_id = ? AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1',
+      [userId]
+    ) || await db.getOne('SELECT * FROM sms_devices WHERE user_id = ? AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1', [userId]);
 
-      let paymentSource = 'BALANCE';
-      const currentCredits = parseInt(user.sms_credits || 0, 10);
-      const currentBalance = parseFloat(user.sms_balance || 0);
+    if (!assignedDevice) {
+      assignedDevice = await db.getOne('SELECT * FROM sms_devices WHERE assigned_user_id = ? OR user_id = ? ORDER BY id DESC LIMIT 1', [userId, userId]);
+    }
 
-      // Verify balance
+    // Check B: Admin Default 3rd Party Gateway (e.g. Greenweb, BulkSMSBD)
+    thirdPartyProvider = await db.getOne('SELECT * FROM sms_gateways WHERE is_default = 1 AND is_active = 1 LIMIT 1')
+      || await db.getOne('SELECT * FROM sms_gateways WHERE is_active = 1 LIMIT 1');
+
+    // Check C: Admin Shared Android Gateway Node
+    sharedDevice = await db.getOne(
+      'SELECT * FROM sms_devices WHERE is_shared = 1 AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1'
+    ) || await db.getOne('SELECT * FROM sms_devices WHERE is_shared = 1 ORDER BY id DESC LIMIT 1');
+
+    if (!assignedDevice && !thirdPartyProvider && !sharedDevice) {
+      throw new Error('No active SMS gateway configured on the platform. Please contact support.');
+    }
+
+    // 3. Balance / Credit Validation
+    const isFreePersonalDevice = assignedDevice && assignedDevice.user_id === userId && !assignedDevice.assigned_user_id;
+    if (!isFreePersonalDevice) {
       if (currentCredits >= parts) {
         paymentSource = 'CREDITS';
       } else if (currentBalance >= totalCost) {
         paymentSource = 'BALANCE';
       } else {
-        throw new Error(`Insufficient SMS Balance. Cost for ${parts} part(s) is ৳${totalCost.toFixed(2)} (Rate: ৳${userRate.toFixed(2)}/SMS). Your Balance: ৳${currentBalance.toFixed(2)} (Credits: ${currentCredits}). Please recharge your SMS wallet.`);
+        throw new Error(`Insufficient SMS Balance. Cost for ${parts} SMS part(s) is ৳${totalCost.toFixed(2)} (Rate: ৳${userRate.toFixed(2)}/SMS). Your Balance: ৳${currentBalance.toFixed(2)} (Credits: ${currentCredits}). Please recharge your SMS wallet.`);
       }
 
-      // Pre-deduct balance / credits
-      let newBalance = currentBalance;
-      let newCredits = currentCredits;
+      // Pre-deduct
       if (paymentSource === 'CREDITS') {
-        newCredits = currentCredits - parts;
+        const newCredits = currentCredits - parts;
         await db.query('UPDATE users SET sms_credits = ? WHERE id = ?', [newCredits, userId]);
         await db.query(
           `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
            VALUES (?, 'SMS_DEBIT', 0.0000, ?, ?, ?, ?, 'COMPLETED', CURRENT_TIMESTAMP)`,
-          [userId, parts, userRate, newBalance, `SMS to ${cleanPhone} (${parts} part(s), ${charCount} chars)`]
+          [userId, parts, userRate, currentBalance, `SMS to ${cleanPhone} (${parts} part(s), ${charCount} chars)`]
         );
       } else {
-        newBalance = currentBalance - totalCost;
+        const newBalance = currentBalance - totalCost;
         await db.query('UPDATE users SET sms_balance = ? WHERE id = ?', [newBalance, userId]);
         await db.query(
           `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
@@ -276,149 +280,79 @@ class SmsQueueEngine {
           [userId, totalCost, parts, userRate, newBalance, `SMS to ${cleanPhone} (${parts} part(s) @ ৳${userRate.toFixed(2)}/SMS)`]
         );
       }
+    }
 
-      // Dispatch Option A: Third Party SMS Gateway (Greenweb, BulkSMSBD, HTTP)
-      if (provider) {
-        try {
-          const result = await ThirdPartySmsGateway.dispatch(provider, cleanPhone, message);
-          await db.query(
-            `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, cost_bdt, sms_parts, charged, sent_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 'SENT', ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-            [userId, provider.provider_name, cleanPhone, message, totalCost, parts]
-          );
-          return {
-            success: true,
-            message: `SMS dispatched via Cloud Gateway (${provider.provider_name})`,
-            charged: totalCost,
-            smsParts: parts,
-            remainingBalance: newBalance,
-            remainingCredits: newCredits,
-            result
-          };
-        } catch (err) {
-          // Automatic Refund on failure
-          if (paymentSource === 'CREDITS') {
-            await db.query('UPDATE users SET sms_credits = sms_credits + ? WHERE id = ?', [parts, userId]);
-            await db.query(
-              `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
-               VALUES (?, 'REFUND', 0.0000, ?, ?, ?, ?, 'COMPLETED', CURRENT_TIMESTAMP)`,
-              [userId, parts, userRate, newBalance, `Refund: SMS Delivery Failed (${err.message})`]
-            );
-          } else {
-            await db.query('UPDATE users SET sms_balance = sms_balance + ? WHERE id = ?', [totalCost, userId]);
-            await db.query(
-              `INSERT INTO sms_transactions (user_id, type, amount_bdt, sms_count, rate_per_sms, balance_after, description, status, created_at)
-               VALUES (?, 'REFUND', ?, ?, ?, ?, ?, 'COMPLETED', CURRENT_TIMESTAMP)`,
-              [userId, totalCost, parts, userRate, currentBalance, `Refund: SMS Delivery Failed (${err.message})`]
-            );
-          }
+    // 4. Execution Option 1: Dedicated / Paired Android Node
+    const targetNode = assignedDevice || sharedDevice;
+    if (targetNode && (!thirdPartyProvider || assignedDevice)) {
+      const slot = simSlot ? parseInt(simSlot) : (targetNode.default_sim_slot || 1);
+      const qRes = await db.query(
+        `INSERT INTO sms_queue (user_id, device_id, gateway_type, sim_slot, recipient, message, status, cost_bdt, sms_parts, charged, created_at, updated_at)
+         VALUES (?, ?, 'android_sim', ?, ?, ?, 'PENDING', ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [userId, targetNode.id, slot, cleanPhone, message, isFreePersonalDevice ? 0.0000 : totalCost, parts]
+      );
 
-          await db.query(
-            `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, cost_bdt, sms_parts, charged, error_reason, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 'FAILED', 0.0000, ?, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-            [userId, provider.provider_name, cleanPhone, message, parts, err.message]
-          );
-          throw err;
-        }
-      }
+      const jobId = qRes.insertId || qRes.lastID;
+      this.broadcast('sms_dispatch_job', {
+        jobId,
+        recipient: cleanPhone,
+        message,
+        simSlot: slot,
+        deviceId: targetNode.id,
+        deviceToken: targetNode.device_token
+      });
 
-      // Dispatch Option B: Platform Shared Android Gateway Node
-      if (sharedDevice) {
-        const slot = parseInt(simSlot) || sharedDevice.default_sim_slot || 1;
-        const senderLabel = slot === 1 ? (sharedDevice.sim1_sender_id || sharedDevice.sim1_operator || 'SIM 1') : (sharedDevice.sim2_sender_id || sharedDevice.sim2_operator || 'SIM 2');
+      return {
+        success: true,
+        message: 'SMS queued for delivery',
+        jobId,
+        job_id: jobId,
+        recipient: cleanPhone,
+        smsParts: parts,
+        sms_parts: parts,
+        cost: isFreePersonalDevice ? 0 : totalCost,
+        remainingBalance: isFreePersonalDevice ? currentBalance : (paymentSource === 'BALANCE' ? currentBalance - totalCost : currentBalance),
+        remainingCredits: isFreePersonalDevice ? currentCredits : (paymentSource === 'CREDITS' ? currentCredits - parts : currentCredits)
+      };
+    }
 
-        const qRes = await db.query(
-          `INSERT INTO sms_queue (user_id, device_id, gateway_type, sim_slot, recipient, message, status, cost_bdt, sms_parts, charged, created_at, updated_at)
-           VALUES (?, ?, 'cloud_gateway', ?, ?, ?, 'PENDING', ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [userId, sharedDevice.id, slot, cleanPhone, message, totalCost, parts]
+    // Execution Option 2: 3rd Party Cloud Gateway
+    if (thirdPartyProvider) {
+      try {
+        const result = await ThirdPartySmsGateway.dispatch(thirdPartyProvider, cleanPhone, message);
+        await db.query(
+          `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, cost_bdt, sms_parts, charged, sent_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'SENT', ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [userId, thirdPartyProvider.provider_name, cleanPhone, message, totalCost, parts]
         );
-
-        const jobId = qRes.insertId || qRes.lastID;
-        const jobData = {
-          jobId,
-          recipient: cleanPhone,
-          message,
-          simSlot: slot,
-          deviceId: sharedDevice.id,
-          deviceToken: sharedDevice.device_token
-        };
-
-        this.broadcast('sms_dispatch_job', jobData);
-
         return {
           success: true,
-          message: `SMS queued via Platform Gateway (${senderLabel})`,
-          jobId,
-          cost: totalCost,
+          message: `SMS dispatched successfully (${thirdPartyProvider.provider_name})`,
+          recipient: cleanPhone,
           smsParts: parts,
-          remainingBalance: newBalance,
-          remainingCredits: newCredits
+          sms_parts: parts,
+          cost: totalCost,
+          remainingBalance: paymentSource === 'BALANCE' ? currentBalance - totalCost : currentBalance,
+          remainingCredits: paymentSource === 'CREDITS' ? currentCredits - parts : currentCredits,
+          result
         };
-      }
-    }
-
-    // 2. Resolve target Android Device (User Phone SIM or Admin Assigned Dedicated Node)
-    let targetDevice = null;
-    if (deviceId) {
-      targetDevice = await db.getOne('SELECT * FROM sms_devices WHERE id = ? AND (user_id = ? OR assigned_user_id = ? OR is_shared = 1)', [deviceId, userId, userId]);
-    } else {
-      // Pick active online device (Paired by user OR dedicated assigned by Admin)
-      targetDevice = await db.getOne(
-        'SELECT * FROM sms_devices WHERE (user_id = ? OR assigned_user_id = ?) AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1',
-        [userId, userId]
-      );
-      if (!targetDevice) {
-        targetDevice = await db.getOne(
-          'SELECT * FROM sms_devices WHERE (user_id = ? OR assigned_user_id = ?) ORDER BY id DESC LIMIT 1',
-          [userId, userId]
+      } catch (err) {
+        // Automatic Refund on immediate gateway failure
+        if (paymentSource === 'CREDITS') {
+          await db.query('UPDATE users SET sms_credits = sms_credits + ? WHERE id = ?', [parts, userId]);
+        } else {
+          await db.query('UPDATE users SET sms_balance = sms_balance + ? WHERE id = ?', [totalCost, userId]);
+        }
+        await db.query(
+          `INSERT INTO sms_queue (user_id, gateway_type, recipient, message, status, cost_bdt, sms_parts, charged, error_reason, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'FAILED', 0.0000, ?, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [userId, thirdPartyProvider.provider_name, cleanPhone, message, parts, err.message]
         );
-      }
-      // If still no personal/assigned device, fallback to Admin shared node if exists
-      if (!targetDevice) {
-        targetDevice = await db.getOne(
-          'SELECT * FROM sms_devices WHERE is_shared = 1 AND status = "ONLINE" ORDER BY last_seen_at DESC LIMIT 1'
-        ) || await db.getOne('SELECT * FROM sms_devices WHERE is_shared = 1 ORDER BY id DESC LIMIT 1');
+        throw err;
       }
     }
 
-    if (!targetDevice) {
-      throw new Error('No Android SMS Gateway device found. Please pair your Android phone in SMS Center or contact admin.');
-    }
-
-    const slot = parseInt(simSlot) || targetDevice.default_sim_slot || 1;
-
-    // 3. Insert into queue (Free routing via personal SIM)
-    const res = await db.query(
-      `INSERT INTO sms_queue (user_id, device_id, gateway_type, sim_slot, recipient, message, status, cost_bdt, sms_parts, charged, created_at, updated_at)
-       VALUES (?, ?, 'android_sim', ?, ?, ?, 'PENDING', 0.0000, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [userId, targetDevice.id, slot, cleanPhone, message, parts]
-    );
-
-    const jobId = res.insertId || res.lastID;
-    const jobData = {
-      jobId,
-      recipient: cleanPhone,
-      message,
-      simSlot: slot,
-      deviceId: targetDevice.id,
-      deviceToken: targetDevice.device_token
-    };
-
-    // 4. Notify Android App via Socket.io if connected
-    this.broadcast('sms_dispatch_job', jobData);
-
-    return {
-      success: true,
-      message: `SMS queued for delivery via Android SIM ${slot} (${slot === 1 ? targetDevice.sim1_operator : targetDevice.sim2_operator})`,
-      jobId,
-      cost: 0,
-      smsParts: parts,
-      device: {
-        id: targetDevice.id,
-        name: targetDevice.device_name,
-        simSlot: slot
-      }
-    };
+    throw new Error('No active SMS gateway route could be resolved. Please contact admin.');
   }
 
   /**
